@@ -1,0 +1,237 @@
+/* ═══════════════════════════════════════════════════════════════
+   main.css — Design system, layout global, thème noir & orange
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('/shared/brand.css');
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-deep:        var(--brand-black);
+  --bg-dark:        var(--brand-black-soft);
+
+  /* Joueur 1 — orange panier */
+  --p1-color:       var(--brand-orange);
+  --p1-glow:        var(--brand-orange-glow);
+  --p1-soft:        var(--brand-orange-soft);
+  --p1-gradient:    linear-gradient(135deg, var(--brand-orange-bright), var(--brand-orange-dark));
+
+  --p2-color:       var(--brand-player2);
+  --p2-glow:        var(--brand-player2-glow);
+  --p2-soft:        var(--brand-player2-soft);
+  --p2-gradient:    linear-gradient(135deg, var(--brand-player2-bright), var(--brand-player2-dark));
+
+  --text-primary:   var(--brand-text);
+
+  --board-bg:       var(--brand-black-surface);
+  --cell-empty:     #0d0d0d;
+  --cell-shadow:    rgba(0, 0, 0, 0.85);
+
+  --font-game:      'Orbitron', sans-serif;
+  --font-ui:        'Inter', sans-serif;
+
+  --hud-height:     clamp(64px, 10vh, 96px);
+  --board-gap:      clamp(3px, 0.55vw, 14px);
+  --board-padding:  clamp(4px, 0.8vw, 12px);
+
+  --radius-xl:      32px;
+
+  --transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   600ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --shadow-lg:  0 16px 64px rgba(0,0,0,0.6);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ─── Layout principal ─────────────────────────────────────────── */
+.game-layout {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-rows: 1fr var(--hud-height);
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ─── Effets victoire (hors HUD) ───────────────────────────────── */
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 500;
+}
+
+.screen-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  pointer-events: none;
+  opacity: 0;
+  background: white;
+}
+
+.screen-flash.active {
+  animation: screenFlash 800ms ease forwards;
+}
+
+.screen-flash.p1 {
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.65) 0%, var(--brand-black) 100%);
+}
+
+.screen-flash.p2 {
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.55) 0%, var(--brand-black) 100%);
+}
+
+/* ─── Score popup (+1 volant) ──────────────────────────────────── */
+.score-popup {
+  position: fixed;
+  z-index: 2000;
+  font-family: var(--font-game);
+  font-size: 5rem;
+  font-weight: 900;
+  pointer-events: none;
+  will-change: transform, opacity, left, top;
+}
+
+.score-popup.p1 {
+  color: var(--p1-color);
+  text-shadow: 0 0 30px var(--p1-glow), 0 0 60px var(--p1-glow);
+}
+
+.score-popup.p2 {
+  color: var(--p2-color);
+  text-shadow: 0 0 30px var(--p2-glow), 0 0 60px var(--p2-glow);
+}
+
+.impact-particle {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ─── Écran victoire de série (5 manches) ──────────────────────── */
+.series-win-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: clamp(20px, 5vh, 56px);
+  /* Légère vignette en haut seulement — le plateau reste visible */
+  background: radial-gradient(
+    ellipse 80% 40% at 50% 0%,
+    rgba(10, 10, 10, 0.55) 0%,
+    transparent 70%
+  );
+  animation: fadeIn 500ms ease;
+}
+
+.series-win-overlay[hidden] {
+  display: none;
+}
+
+.series-win-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.2vh, 12px);
+  padding: clamp(16px, 3vh, 28px) clamp(32px, 8vw, 72px);
+  background: rgba(26, 26, 26, 0.85);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-xl);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  animation: seriesBannerIn 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.series-win-overlay.p1 .series-win-banner {
+  border-color: rgba(255, 107, 0, 0.45);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), 0 0 60px var(--brand-orange-soft);
+}
+
+.series-win-overlay.p2 .series-win-banner {
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), 0 0 60px rgba(34, 211, 238, 0.2);
+}
+
+.series-win-token {
+  width: clamp(48px, 8vh, 72px);
+  height: clamp(48px, 8vh, 72px);
+  border-radius: 50%;
+  animation: trophyBounce 900ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.series-win-overlay.p1 .series-win-token {
+  background: var(--p1-gradient);
+  box-shadow: 0 0 30px var(--p1-glow), inset 0 -4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.series-win-overlay.p2 .series-win-token {
+  background: var(--p2-gradient);
+  box-shadow: 0 0 30px var(--p2-glow), inset 0 -4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.series-win-label {
+  font-family: var(--font-game);
+  font-size: clamp(0.65rem, 1.5vh, 0.85rem);
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(240, 240, 255, 0.55);
+}
+
+.series-win-title {
+  font-family: var(--font-game);
+  font-size: clamp(1.8rem, 5vh, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  animation: titleRetroIn 800ms cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.series-win-overlay.p1 .series-win-title {
+  color: var(--p1-color);
+  text-shadow: 0 0 24px var(--p1-glow);
+}
+
+.series-win-overlay.p2 .series-win-title {
+  color: var(--p2-color);
+  text-shadow: 0 0 24px var(--p2-glow);
+}
+
+.series-win-subtitle {
+  font-family: var(--font-ui);
+  font-size: clamp(0.9rem, 2vh, 1.1rem);
+  color: rgba(240, 240, 255, 0.65);
+  letter-spacing: 0.04em;
+}

@@ -1,0 +1,40 @@
+# ─── Dépendances ──────────────────────────────────────────────────────────────
+node_modules/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ─── Système ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE / éditeur (config locale) ────────────────────────────────────────────
+.idea/
+.vscode/
+*.code-workspace
+.cursor/
+
+# ─── Secrets / env (si ajoutés plus tard) ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Données locales — ne jamais pousser sur un dépôt public ────────────────
+#
+# Profils joueurs : pseudos + photos webcam (idle / win / lose / cutout)
+data/players/*
+!data/players/.gitkeep
+
+# Calibration capteurs IR (seuils propres à l'installation physique)
+data/sensors-config.json
+
+# Scores persistés par jeu (historique local)
+games/*/server/scores.json
+
+# ─── Build / cache ────────────────────────────────────────────────────────────
+coverage/
+dist/
+.cache/

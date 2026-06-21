@@ -1,0 +1,157 @@
+# Plinko — Documentation du jeu
+
+> Lancez la balle dans une des 7 colonnes, regardez-la rebondir sur les clous et atterrir dans une case du bas.
+
+## Objectif
+
+Accumuler le maximum de **pièces** en 5 tours. Chaque case du bas rapporte des pièces, des bombes (perte), des mini-jeux spéciaux ou rien (neutre). Le joueur avec le plus de pièces à la fin remporte la partie.
+
+## Règles
+
+| Élément | Valeur |
+|---------|--------|
+| Colonnes ESP32 | 7 (`0`–`6`) |
+| Joueurs | 2 à 5 (choisi au lancement depuis le contrôleur) |
+| Tours | 5 |
+| Coups par tour | Chaque joueur joue **une fois** sur le **même plateau** |
+| Nouveau plateau | Généré aléatoirement au début de chaque tour |
+
+### Profils joueurs (roster)
+
+Plinko déclare `controller.requiresPlayerRoster` : au lancement, le contrôleur fait
+choisir le nombre de joueurs (2–5) **puis** un profil par emplacement (créés sur `/players`,
+avec leurs 3 photos). Le hub transmet un `roster` enrichi rangé dans `state.roster`
+(voir [`API.md`](API.md)).
+
+Le module partagé `window.PlayerFaces` affiche la bonne photo selon le contexte :
+
+| Moment | Photo utilisée |
+|--------|----------------|
+| Onglet joueur | `idle` |
+| Gain de pièces (score volant + onglet) | `win` |
+| Perte de pièces / vol subi | `lose` |
+| Podium — 1er | `win` |
+| Podium — dernier | `lose` |
+| Podium — autres | `idle` |
+
+Les visages sont affichés en grand sur la télé : score volant en taille `lg`, podium
+en `xl`/`xxl`. À l'affichage du podium, une **pluie de têtes** du vainqueur
+(`PlayerFaces.rainHeads`) fait tomber sa tête détourée (PNG transparent, `cutoutUrl`
+du roster) en cascade.
+
+Sans roster, le jeu retombe sur les libellés « Joueur N » sans photo (et la pluie de
+têtes est désactivée).
+
+### Déroulement
+
+1. Le contrôleur choisit le nombre de joueurs (2–5) puis lance le jeu.
+2. Un plateau aléatoire apparaît sur la télé (clous + cases).
+3. Le joueur actif lance la balle via le plateau physique (trigger ESP32).
+4. La balle descend et dévie sur les clous (physique : angle d'impact, élan latéral, légère attraction centre + variation aléatoire — pas un simple 50/50).
+5. Elle atterrit dans une case : gain ou perte de pièces.
+6. Au tour du joueur suivant, jusqu'à ce que tous aient joué.
+7. Nouveau plateau → tour suivant.
+8. Après 5 tours : **podium** + statistiques.
+
+### Types de cases
+
+| Type | Effet | Visuel |
+|------|-------|--------|
+| `coin` | +5 à +50 pièces (multiple de 5) | 1 à 5 icônes 🪙 selon le montant |
+| `bomb` | -5 à -30 pièces (multiple de 5) | 💣 petite (-5/-10) / moyenne (-15/-20) / grande (-25/-30) |
+| `neutral` | 0 | — |
+| `knife` | Mini-jeu Couteau (rejeu) | 🔪 |
+| `thief` | Mini-jeu Voleur | 🦹 |
+
+**Probabilités approximatives** (génération aléatoire par case) : pièce 50 %, bombe 22 %, neutre 13 %, couteau 7,5 %, voleur 7,5 %. Les pièces/bombes/neutres sont nettement plus fréquents que les cases spéciales.
+
+Les largeurs des cases et leur répartition sont **aléatoires** à chaque tour.
+
+**Plancher à zéro** : un joueur ne peut pas descendre sous 0 pièce. Si une bombe dépasse le solde, seules les pièces disponibles sont perdues.
+
+**Affichage** : chaque joueur voit `🪙` + son total de pièces (jamais négatif).
+
+**Animation balle** : chute avec élan plafonné (vitesse max ~×1,65) — accélération progressive en série du même côté, sans excès.
+
+**Mode feu 🔥** : 3× même côté → flammes sur la balle. Atterrissage en feu → **×2 géant** plein écran + montant (`+100`, `-28`…) qui vole vers l’onglet joueur avec sons.
+
+**Transition plateau** : au nouveau tour (`BOARD_READY`), les cases et clous actuels défilent vers la droite ; le nouveau plateau entre en glissant depuis la gauche (effet bandeau). La balle disparaît dès l'atterrissage ou au changement de tour.
+
+### Mini-jeux Couteau et Voleur
+
+Quand la balle atterrit sur une case **couteau** ou **voleur** :
+
+1. La balle **termine sa chute** sur la case + FX d'atterrissage.
+2. Pause HUD (~0,4 s) puis bannière d'intro (~0,65 s) « MINI-JEU COUTEAU / VOLEUR ».
+3. L'overlay mini-jeu remplace **uniquement la zone plateau** (tabs joueurs visibles en bas) : grille **7 colonnes** avec repères `0`–`6` en haut, cases **VIDE** 🕳️ ou **numéro de joueur** en grand.
+4. Les données du layout arrivent dans `BALL_DROP.minigameStart` (et en secours via `MINIGAME_START` ou `state.minigame`).
+5. Le joueur actif **relance la balle** via l'ESP32 pour viser une colonne (`0`–`6`).
+6. **VIDE** → texte PERDU, aucun effet sur les scores.
+7. **Joueur touché** → slot machine affiche le **montant réellement appliqué** (5 / 10 / 15 / 20, ou moins si la victime n'a pas assez de pièces) puis animation vers les joueurs :
+   - **Couteau** : la victime **perd** ce montant (plancher 0).
+   - **Voleur** : la victime **perd** N et le lanceur **gagne exactement N** (si la victime n'a que 3 pièces et le tirage est 10, vol de 3).
+8. Le tour passe ensuite normalement au joueur suivant sur le **même plateau Plinko** (pas de second lancer principal, pas de nouveau plateau avant la fin du tour).
+
+Le mode feu **ne s'applique pas** aux cases couteau/voleur.
+
+## Layout télé (alignement physique)
+
+- **7 colonnes** collées en haut de l'écran (`--zone-drop: 6%`) — alignées avec le plateau physique au-dessus de la télé.
+- **Clous** sur toute la largeur de l'écran (motif triangulaire, 11 clous par rangée paire).
+- **Cases** en bas (`--zone-slots: 14%`).
+- **HUD + tabs joueurs** regroupés en bas dans `.bottom-dock`.
+
+## Phases et délais
+
+| Phase | Description | Triggers |
+|-------|-------------|----------|
+| `playing` | En attente du lancer | acceptés |
+| `minigame_knife` | Mini-jeu Couteau — viser une colonne | acceptés (après armement) |
+| `minigame_thief` | Mini-jeu Voleur — viser une colonne | acceptés (après armement) |
+| `resolving` | Résultat en cours (chute, FX, changement de tour) | refusés (`RESOLVING`) |
+| `board_transition` | Nouveau plateau en glissement (~2,5 s) | refusés (`BOARD_TRANSITION`) |
+| `round_summary` | Fin d'un tour (~4 s) | refusés (`ROUND_SUMMARY`) |
+| `game_over` | Podium | refusés |
+
+Après une chute normale : le serveur attend `RESOLVE_MS` (6500 ms) avant `TURN_CHANGE` / `ROUND_END` / `GAME_OVER`. Ce délai couvre la chute, les FX (×2 feu, score volant) et la pause résultat côté télé.
+
+Après une case couteau/voleur : la phase reste `resolving` pendant la chute et les intros client ; le mini-jeu n'est **armé** qu'après `MINIGAME_ARM_MS` (5500 ms), ce qui empêche un second lancer pendant l'animation de la balle précédente.
+
+Après un mini-jeu : `MINIGAME_RESOLVE_MS` (5500 ms) après `MINIGAME_RESULT`.
+
+Au nouveau tour : phase `board_transition` pendant `BOARD_TRANSITION_MS` (2500 ms) après `BOARD_READY`, le temps que le bandeau de plateau défile sur la télé.
+
+## Constantes (serveur)
+
+| Constante | Valeur | Fichier |
+|-----------|--------|---------|
+| `TOTAL_ROUNDS` | 5 | `server/game.js` |
+| `MIN_PLAYERS` / `MAX_PLAYERS` | 2 / 5 | `server/game.js` |
+| `PLATFORM_COLUMNS` | 7 | `shared/constants.js` |
+| `RESOLVE_MS` | 6500 | `server/index.js` |
+| `MINIGAME_ARM_MS` | 5500 | `server/index.js` |
+| `MINIGAME_RESOLVE_MS` | 5500 | `server/index.js` |
+| `MINIGAME_AMOUNTS` | 5, 10, 15, 20 | `shared/modules/plinko/minigame.js` |
+| `FIRE_STREAK_MIN` | 3 | `shared/modules/plinko/simulator.js` |
+| `ROUND_SUMMARY_MS` | 4000 | `server/index.js` |
+| `BOARD_TRANSITION_MS` | 2500 | `server/index.js` |
+| `PEGS_PER_ROW` | 11 | `shared/modules/plinko/board-generator.js` |
+
+## Modules composés
+
+| Module | Rôle |
+|--------|------|
+| `shared/modules/plinko` | Génération plateau + simulation de chute + layout mini-jeu |
+| `shared/modules/plinko/minigame` | Layout 7 colonnes (trous/joueurs) + tirage 5 / 10 / 15 / 20 |
+| `shared/modules/turn-manager` | Alternance des joueurs |
+| `shared/modules/scoring` | Scores en pièces (`addPoints`) |
+
+## Paramètres de lancement
+
+Le jeu déclare `controller.startOptions` dans `game.config.json` :
+
+```json
+{ "id": "playerCount", "type": "number", "min": 2, "max": 5, "default": 2 }
+```
+
+Le hub transmet la valeur via `GAME_START_PARAMS` au spawn du serveur.

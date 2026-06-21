@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="BasketGame — dashboard capteurs IR ESP32 : calibration et détection temps réel." />
+  <title>BasketGame — Capteurs IR</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/sensors.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <main class="controller sensors-page">
+    <header class="topbar">
+      <div>
+        <h1 class="topbar__title brand">Capteurs <span class="brand__accent">IR</span></h1>
+        <p class="topbar__subtitle">Calibration et détection — 7 colonnes ESP32</p>
+      </div>
+      <div class="topbar__nav">
+        <a class="btn btn--ghost" href="/">← Contrôleur</a>
+        <button type="button" class="btn btn--warning sensors-recalib" id="btn-recalib" hidden>Recalibrer</button>
+        <span class="connection" id="serial-connection">
+          <span class="connection__dot"></span>
+          <span id="serial-connection-label">Série…</span>
+        </span>
+      </div>
+    </header>
+
+    <div class="sensors-meta">
+      <span class="tag">7 capteurs</span>
+    </div>
+
+    <section class="threshold-panel" id="thresholdPanel" aria-label="Réglage du seuil de détection">
+      <div class="threshold-panel__head">
+        <div>
+          <h2 class="threshold-panel__title">Seuil de détection</h2>
+          <p class="threshold-panel__hint">Pourcentage de la baseline calibrée — plus bas = plus sensible</p>
+        </div>
+        <div class="threshold-panel__value" id="thresholdValueDisplay">55<span>%</span></div>
+      </div>
+
+      <div class="threshold-panel__row">
+        <div class="threshold-slider" id="thresholdSliderWrap">
+          <input
+            type="range"
+            id="thresholdSlider"
+            class="threshold-slider__input"
+            min="10"
+            max="90"
+            step="1"
+            value="55"
+            aria-label="Curseur de seuil baseline"
+          />
+        </div>
+
+        <label class="threshold-panel__input-wrap" for="thresholdPercent">
+          <input
+            type="number"
+            id="thresholdPercent"
+            class="threshold-panel__input"
+            min="10"
+            max="90"
+            step="1"
+            value="55"
+            inputmode="numeric"
+            aria-label="Valeur exacte du seuil en pourcentage"
+          />
+          <span class="threshold-panel__unit">%</span>
+        </label>
+      </div>
+
+      <div class="threshold-panel__scale">
+        <span>10 %</span>
+        <span class="threshold-panel__scale-mid">Sensible ← → Tolérant</span>
+        <span>90 %</span>
+      </div>
+
+      <p class="threshold-panel__status" id="thresholdStatus" hidden></p>
+    </section>
+
+    <div class="sensors-layout">
+      <section class="sensors-layout__main">
+        <h2 class="section-title">Capteurs en direct</h2>
+        <div class="sensor-grid" id="sensorGrid"></div>
+
+        <div class="chart-section">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Historique analogique</h3>
+              <p class="chart-subtitle" id="chartSubtitle">Dernières 100 mesures — ADC 12 bits (0–4095)</p>
+            </div>
+            <span class="threshold-badge" id="thresholdBadge">Calibration…</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="mainChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <aside class="sensors-layout__side">
+        <div class="panel">
+          <h2 class="section-title">Statistiques</h2>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-box__val" id="statTotal">0</div>
+              <div class="stat-box__lbl">Détections</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box__val" id="statActive">0</div>
+              <div class="stat-box__lbl">Actifs</div>
+            </div>
+            <div class="stat-box stat-box--wide">
+              <div class="stat-box__val stat-box__val--sm" id="statPort">—</div>
+              <div class="stat-box__lbl">Port série</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2 class="section-title">Valeurs brutes</h2>
+          <div class="mini-gauge-list" id="miniGauges"></div>
+        </div>
+
+        <div class="panel panel--grow">
+          <h2 class="section-title">Journal</h2>
+          <div class="log-list" id="logList">
+            <p class="empty-log">En attente d'événements…</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="calib-overlay" id="calibOverlay">
+    <div class="calib-box">
+      <div class="calib-box__icon" id="calibIcon">📡</div>
+      <h2 class="calib-box__title brand" id="calibTitle">Calibration</h2>
+      <p class="calib-box__sub" id="calibSub">
+        Ne placez pas de balle devant les capteurs.<br>
+        Mesure des valeurs de repos de chaque capteur.
+      </p>
+      <div class="calib-box__track">
+        <div class="calib-box__fill" id="calibProgressFill"></div>
+      </div>
+      <p class="calib-box__timer" id="calibTimer">0.0s / 5s</p>
+      <div class="calib-box__live" id="calibLiveVals"></div>
+    </div>
+  </div>
+
+  <script src="/shared/ws-client.js"></script>
+  <script src="js/sensors.js"></script>
+</body>
+</html>

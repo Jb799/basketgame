@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Plinko BasketGame — Lancez la balle, gagnez des pièces !" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>Plinko — Live</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/shared/player-faces.css" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/board.css" />
+  <link rel="stylesheet" href="css/players.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/results.css" />
+  <link rel="stylesheet" href="css/minigame.css" />
+</head>
+<body>
+
+  <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
+  <div id="screen-flash" class="screen-flash" aria-hidden="true" hidden></div>
+  <div id="fx-layer" class="fx-layer" aria-hidden="true"></div>
+
+  <div class="turn-overlay" id="turn-overlay" hidden aria-live="polite">
+    <div class="turn-overlay__banner" id="turn-overlay-banner"></div>
+  </div>
+
+  <div class="round-overlay" id="round-overlay" hidden aria-live="polite">
+    <div class="round-overlay__banner" id="round-overlay-banner"></div>
+  </div>
+
+  <div class="multiplier-overlay" id="multiplier-overlay" hidden aria-hidden="true">
+    <div class="multiplier-overlay__glow"></div>
+    <div class="multiplier-overlay__badge">×2</div>
+    <div class="multiplier-overlay__fire multiplier-overlay__fire--l"></div>
+    <div class="multiplier-overlay__fire multiplier-overlay__fire--r"></div>
+  </div>
+
+  <div class="minigame-intro-overlay" id="minigame-intro-overlay" hidden aria-live="polite">
+    <div class="minigame-intro-overlay__banner" id="minigame-intro-banner"></div>
+  </div>
+
+  <div class="plinko-screen" id="plinko-screen">
+    <main class="plinko-layout" id="plinko-layout">
+      <section class="plinko-board" id="plinko-board" aria-label="Plateau Plinko">
+        <div class="plinko-board__drop-zone" id="drop-zone"></div>
+        <div class="plinko-board__pegs" id="pegs-layer"></div>
+        <div class="ball-flame-wrap" id="ball-flame-wrap" hidden aria-hidden="true">
+          <div class="ball-flame ball-flame--outer"></div>
+          <div class="ball-flame ball-flame--mid"></div>
+          <div class="ball-flame ball-flame--core"></div>
+        </div>
+        <div class="plinko-board__ball" id="ball" hidden></div>
+        <div class="plinko-board__slots" id="slots-layer"></div>
+      </section>
+
+      <div class="minigame-overlay minigame-overlay--knife" id="minigame-overlay" hidden aria-live="polite">
+        <header class="minigame-overlay__header">
+          <div class="minigame-overlay__icon" id="minigame-icon">🔪</div>
+          <h2 class="minigame-overlay__title" id="minigame-title">COUTEAU</h2>
+          <p class="minigame-overlay__subtitle" id="minigame-subtitle">Visez une colonne</p>
+        </header>
+        <div class="minigame-overlay__drop-hint">Lancez la balle — choisissez une colonne (0 à 6)</div>
+        <div class="minigame-overlay__arena">
+          <div class="minigame-board">
+            <div class="minigame-board__drop-row" id="minigame-drop-row" aria-hidden="true"></div>
+            <div class="minigame-columns" id="minigame-columns"></div>
+          </div>
+        </div>
+        <div class="minigame-slot-wrap" id="minigame-slot-wrap">
+          <div class="minigame-slot-wrap__label" id="minigame-slot-label">Montant</div>
+          <div class="minigame-slot" id="minigame-slot">—</div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="bottom-dock" id="bottom-dock">
+      <div class="hud-bar" id="hud">
+        <div class="hud-bar__round" id="hud-round">Tour 1 / 5</div>
+        <div class="hud-bar__turn" id="hud-turn">Joueur 1</div>
+        <div class="hud-bar__status" id="hud-status"></div>
+      </div>
+      <div class="player-tabs" id="player-tabs" aria-label="Joueurs"></div>
+    </footer>
+  </div>
+
+  <div class="results-overlay" id="results-overlay" role="dialog" aria-modal="true" hidden>
+    <div class="results-panel">
+      <h2 class="results-panel__title">Podium</h2>
+      <div class="results-panel__podium" id="results-podium"></div>
+      <div class="results-panel__stats" id="results-stats"></div>
+    </div>
+  </div>
+
+  <script src="shared/effects.js"></script>
+  <script src="/shared/player-faces.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/ball.js"></script>
+  <script src="js/players.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/effects.js"></script>
+  <script src="js/minigame.js"></script>
+  <script src="js/results.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

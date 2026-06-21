@@ -1,0 +1,125 @@
+.player-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem clamp(0.75rem, 2vw, 1.5rem) 0.75rem;
+  overflow-x: auto;
+}
+
+.player-tab {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.55rem 0.5rem 0.65rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid transparent;
+  transition: border-color 0.25s, background 0.25s;
+}
+
+.player-tab.is-active {
+  border-color: var(--player-accent, var(--gold));
+  background: rgba(255, 215, 0, 0.12);
+  animation: turnPulse 1.6s ease-in-out infinite;
+  box-shadow: 0 0 24px rgba(255, 215, 0, 0.25);
+}
+
+.player-tab.is-dropping {
+  border-color: var(--player-accent, var(--gold));
+  background: rgba(255, 107, 0, 0.15);
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.35);
+}
+
+.player-tab.is-targeted {
+  animation: playerTargetPulse 0.6s ease-in-out infinite;
+  border-color: #ff4757;
+  box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
+}
+
+@keyframes playerTargetPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+.player-tab__badge {
+  position: absolute;
+  top: -0.55rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  background: var(--player-accent, var(--gold));
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.player-tab.is-active .player-tab__badge {
+  opacity: 1;
+}
+
+.player-tab__face {
+  margin-bottom: 0.1rem;
+}
+
+.player-tab__label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.65rem, 1.6vw, 0.85rem);
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.player-tab.is-active .player-tab__label,
+.player-tab.is-dropping .player-tab__label {
+  color: var(--player-accent, var(--gold));
+}
+
+.player-tab__score-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.player-tab__coin {
+  font-size: clamp(0.9rem, 2.2vw, 1.15rem);
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.35));
+}
+
+.player-tab__score {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  font-weight: 900;
+  transition: color 0.3s;
+  color: var(--text);
+}
+
+.player-tab__score.is-positive {
+  color: var(--gold);
+}
+
+.player-tab__score.is-bump-up {
+  animation: scoreBumpUp 0.5s ease-out;
+}
+
+.player-tab__score.is-bump-down {
+  animation: scoreBumpDown 0.5s ease-out;
+}
+
+.player-tab.is-score-hit {
+  animation: tabScoreHit 0.5s ease-out;
+}
+
+.player-tab--p1 { --player-accent: var(--brand-orange); }
+.player-tab--p2 { --player-accent: var(--brand-player2); }
+.player-tab--p3 { --player-accent: #a78bfa; }
+.player-tab--p4 { --player-accent: #4ade80; }
+.player-tab--p5 { --player-accent: #f472b6; }

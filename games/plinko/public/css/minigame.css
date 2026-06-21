@@ -1,0 +1,344 @@
+/**
+ * minigame.css — Overlay mini-jeux Couteau / Voleur (zone plateau uniquement).
+ */
+
+.minigame-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(ellipse at 50% 30%, rgba(12, 14, 22, 0.99), rgba(4, 4, 8, 0.99));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.minigame-overlay[hidden] {
+  display: none !important;
+}
+
+.minigame-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.minigame-overlay.is-exiting {
+  opacity: 0;
+}
+
+.minigame-overlay--knife {
+  --mg-accent: #6eb5e8;
+  --mg-glow: rgba(100, 160, 220, 0.45);
+}
+
+.minigame-overlay--thief {
+  --mg-accent: #b07ae8;
+  --mg-glow: rgba(140, 80, 200, 0.5);
+}
+
+.minigame-overlay__header {
+  flex: 0 0 auto;
+  padding: clamp(0.5rem, 1.5vh, 1rem) 1rem 0.25rem;
+  text-align: center;
+}
+
+.minigame-overlay__icon {
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  line-height: 1;
+}
+
+.minigame-overlay__title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.95rem, 2.8vw, 1.5rem);
+  font-weight: 900;
+  color: var(--mg-accent, #fff);
+  text-shadow: 0 0 20px var(--mg-glow);
+  margin: 0.25rem 0 0.1rem;
+  letter-spacing: 0.08em;
+}
+
+.minigame-overlay__subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(0.7rem, 1.6vw, 0.9rem);
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+}
+
+.minigame-overlay__drop-hint {
+  flex: 0 0 auto;
+  text-align: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.55rem, 1.4vw, 0.75rem);
+  color: var(--mg-accent, rgba(255, 255, 255, 0.6));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 0.75rem 0.35rem;
+}
+
+.minigame-overlay__arena {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 0.4rem 0.75rem;
+  min-height: 0;
+}
+
+.minigame-board {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  min-height: clamp(220px, 52vh, 480px);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.minigame-board__drop-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  height: clamp(28px, 6vh, 48px);
+  border-bottom: 2px solid rgba(255, 215, 0, 0.25);
+  background: rgba(255, 215, 0, 0.04);
+}
+
+.minigame-board__drop-cell {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.5rem, 1.2vw, 0.7rem);
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.minigame-board__drop-cell:last-child {
+  border-right: none;
+}
+
+.minigame-board__drop-cell.is-active {
+  background: rgba(255, 140, 0, 0.15);
+  color: var(--mg-accent, #ff8c00);
+  box-shadow: inset 0 -3px 0 var(--mg-accent, #ff8c00);
+}
+
+.minigame-columns {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+}
+
+.minigame-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 100%;
+}
+
+.minigame-col:last-child {
+  border-right: none;
+}
+
+.minigame-col__slot {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.2rem;
+  min-height: clamp(80px, 18vh, 180px);
+}
+
+.minigame-col--hole .minigame-col__slot {
+  background: linear-gradient(180deg, rgba(30, 30, 38, 0.95), rgba(10, 10, 14, 0.98));
+}
+
+.minigame-col--player .minigame-col__slot {
+  background: linear-gradient(180deg, rgba(255, 140, 0, 0.18), rgba(80, 40, 0, 0.12));
+}
+
+.minigame-col--p1 .minigame-col__slot { background: linear-gradient(180deg, rgba(255, 140, 0, 0.22), rgba(60, 30, 0, 0.15)); }
+.minigame-col--p2 .minigame-col__slot { background: linear-gradient(180deg, rgba(77, 171, 247, 0.22), rgba(20, 60, 100, 0.15)); }
+.minigame-col--p3 .minigame-col__slot { background: linear-gradient(180deg, rgba(167, 139, 250, 0.22), rgba(50, 30, 90, 0.15)); }
+.minigame-col--p4 .minigame-col__slot { background: linear-gradient(180deg, rgba(74, 222, 128, 0.2), rgba(20, 70, 40, 0.12)); }
+.minigame-col--p5 .minigame-col__slot { background: linear-gradient(180deg, rgba(244, 114, 182, 0.22), rgba(80, 30, 60, 0.12)); }
+
+.minigame-col__col-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.45rem, 1.1vw, 0.65rem);
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.05em;
+}
+
+.minigame-col__vide {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.65rem, 1.6vw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.minigame-col__hole-icon {
+  font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+  line-height: 1;
+}
+
+.minigame-col__player-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.minigame-col__player-label {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(0.55rem, 1.3vw, 0.8rem);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.minigame-col--p1 .minigame-col__player-num { color: var(--brand-orange, #ff8c00); }
+.minigame-col--p2 .minigame-col__player-num { color: var(--brand-player2, #4dabf7); }
+.minigame-col--p3 .minigame-col__player-num { color: #a78bfa; }
+.minigame-col--p4 .minigame-col__player-num { color: #4ade80; }
+.minigame-col--p5 .minigame-col__player-num { color: #f472b6; }
+
+.minigame-col.is-active {
+  box-shadow: inset 0 0 0 3px var(--mg-accent, #ff8c00);
+  z-index: 2;
+}
+
+.minigame-col.is-hit {
+  animation: minigameColHit 0.45s ease-out;
+}
+
+.minigame-col.is-targeted .minigame-col__slot {
+  box-shadow: inset 0 0 24px var(--mg-glow);
+}
+
+.minigame-col.is-missed .minigame-col__slot {
+  animation: minigameMissFlash 0.5s ease-out;
+}
+
+.minigame-ball {
+  position: absolute;
+  width: clamp(14px, 2.2vw, 22px);
+  height: clamp(14px, 2.2vw, 22px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--brand-orange, #ff8c00) 45%, #a05000);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55);
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.minigame-ball.is-falling {
+  animation: minigameBallDrop 0.65s cubic-bezier(0.55, 0.06, 0.68, 0.9) forwards;
+}
+
+.minigame-slot-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(0.75rem, 3vh, 1.5rem);
+  transform: translateX(-50%);
+  z-index: 160;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+
+.minigame-slot-wrap.is-visible {
+  opacity: 1;
+}
+
+.minigame-slot-wrap__label {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(0.65rem, 1.6vw, 0.85rem);
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 0.35rem;
+}
+
+.minigame-slot {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.6rem, 6vw, 3rem);
+  font-weight: 900;
+  color: #ffd700;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  min-width: 4ch;
+  padding: 0.2rem 0.75rem;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 215, 0, 0.45);
+  border-radius: 10px;
+}
+
+.minigame-slot.is-rolling {
+  animation: minigameSlotRoll 0.08s steps(1) infinite;
+}
+
+.minigame-slot.is-final {
+  animation: minigameSlotFinal 0.45s ease-out;
+}
+
+.minigame-hole-fx {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+  font-weight: 900;
+  color: #ff6b7a;
+  letter-spacing: 0.14em;
+  animation: minigameHoleFade 0.85s ease-out forwards;
+  pointer-events: none;
+  z-index: 6;
+  background: rgba(255, 71, 87, 0.12);
+}
+
+.plinko-board.is-minigame-hidden {
+  visibility: hidden;
+}
+
+@keyframes minigameColHit {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+@keyframes minigameMissFlash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+
+@keyframes minigameBallDrop {
+  0% { top: 0; opacity: 1; }
+  100% { top: calc(100% - 14px); opacity: 1; }
+}
+
+@keyframes minigameSlotRoll {
+  0%, 100% { filter: brightness(1.15); }
+}
+
+@keyframes minigameSlotFinal {
+  0% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes minigameHoleFade {
+  0% { opacity: 0; transform: scale(0.7); }
+  20% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; }
+}

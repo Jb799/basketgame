@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="BasketGame — écran télé. Affiche le jeu en cours ou un écran d'attente." />
+  <title>BasketGame — Télé</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shared/column-layout.css" />
+  <link rel="stylesheet" href="css/hub.css" />
+</head>
+<body>
+  <div class="tv">
+    <!-- Écran d'attente (idle) -->
+    <div class="tv-wait" id="tv-wait">
+      <div class="tv-wait__lanes platform-grid" id="tv-lanes" aria-hidden="true">
+        <!-- 7 couloirs — un par colonne physique -->
+      </div>
+
+      <div class="tv-wait__content">
+        <div class="tv-wait__logo brand">Basket<span class="brand__accent">Game</span></div>
+        <p class="tv-wait__hint">En attente — choisissez un jeu sur le contrôleur</p>
+        <span class="tv-wait__status" id="tv-status">
+          <span class="tv-wait__dot"></span>
+          <span id="tv-status-label">Connexion au hub…</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Jeu actif (chargé via le proxy /play) -->
+    <iframe class="tv__frame" id="tv-frame" title="Jeu en cours" hidden></iframe>
+  </div>
+
+  <script src="/shared/ws-client.js"></script>
+  <script src="js/tv.js"></script>
+</body>
+</html>

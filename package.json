@@ -1,0 +1,22 @@
+{
+  "name": "basketgame-platform",
+  "version": "1.0.0",
+  "description": "BasketGame — plateforme multi-jeux pour plateau physique 7 colonnes (ESP32). Le hub reçoit l'ESP32, lance les jeux et sert les interfaces télé + contrôleur.",
+  "main": "hub/index.js",
+  "scripts": {
+    "start": "node hub/index.js",
+    "dev": "node --watch hub/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.16.0",
+    "cors": "^2.8.5",
+    "http-proxy-middleware": "^3.0.3",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,280 @@
+.plinko-board {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+  background: linear-gradient(180deg, rgba(20, 18, 12, 0.98), rgba(8, 8, 8, 0.99));
+  overflow: hidden;
+}
+
+.plinko-board__drop-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--zone-drop);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  z-index: 5;
+  border-bottom: 2px solid rgba(255, 215, 0, 0.25);
+}
+
+.drop-col {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+
+.drop-col:last-child {
+  border-right: none;
+}
+
+.drop-col.is-active {
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.drop-col.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 4px;
+  background: var(--gold);
+  box-shadow: 0 0 14px var(--gold-glow);
+  border-radius: 2px;
+}
+
+.plinko-board__pegs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.board-band {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.board-band--slots {
+  display: flex;
+  align-items: stretch;
+}
+
+.board-band.is-exit-right {
+  z-index: 2;
+  animation: bandExitRight 0.85s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.board-band.is-enter-left {
+  z-index: 1;
+  animation: bandEnterLeft 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.board-band--pegs.is-exit-right,
+.board-band--pegs.is-enter-left {
+  animation-duration: 0.9s;
+}
+
+.peg {
+  position: absolute;
+  width: clamp(10px, 1.4vw, 16px);
+  height: clamp(10px, 1.4vw, 16px);
+  margin-left: calc(clamp(10px, 1.4vw, 16px) / -2);
+  margin-top: calc(clamp(10px, 1.4vw, 16px) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8e7, #c9a227 55%, #7a5c10);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.peg.is-hit {
+  animation: pegHit 0.25s ease-out;
+}
+
+.plinko-board__ball {
+  position: absolute;
+  width: clamp(18px, 2.2vw, 28px);
+  height: clamp(18px, 2.2vw, 28px);
+  margin-left: calc(clamp(18px, 2.2vw, 28px) / -2);
+  margin-top: calc(clamp(18px, 2.2vw, 28px) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #fff, var(--brand-orange-bright) 45%, var(--brand-orange-dark));
+  box-shadow: 0 0 16px var(--brand-orange-glow);
+  z-index: 20;
+  transition: transform 0.08s ease-out;
+}
+
+.plinko-board__ball.is-falling {
+  box-shadow: 0 4px 20px var(--brand-orange-glow);
+}
+
+.plinko-board__ball.is-squash {
+  transform: scale(1.14, 0.86);
+}
+
+.plinko-board__ball.is-stretch {
+  transform: scale(0.9, 1.1);
+}
+
+.plinko-board__ball.is-fast {
+  transform: scale(0.82, 1.18);
+  box-shadow: 0 6px 24px var(--brand-orange-glow);
+}
+
+.plinko-board__ball.is-on-fire {
+  z-index: 26;
+  background: radial-gradient(circle at 30% 22%, #fff 0%, #ffe066 28%, #ff9500 52%, #ff4500 78%, #cc2200);
+  animation: ballFirePulse 0.22s ease-in-out infinite alternate;
+  box-shadow:
+    0 0 18px rgba(255, 180, 0, 0.95),
+    0 0 32px rgba(255, 90, 0, 0.8);
+}
+
+.plinko-board__ball.is-extinguishing {
+  filter: brightness(0.85);
+  box-shadow: 0 0 8px rgba(120, 120, 120, 0.5);
+  transition: filter 0.25s, box-shadow 0.25s;
+}
+
+/* Flammes autour de la balle (wrap séparé — visible à l'écran) */
+.ball-flame-wrap {
+  position: absolute;
+  width: clamp(42px, 5.5vw, 64px);
+  height: clamp(56px, 7vw, 84px);
+  margin-left: calc(clamp(42px, 5.5vw, 64px) / -2);
+  margin-top: calc(clamp(56px, 7vw, 84px) / -2);
+  pointer-events: none;
+  z-index: 25;
+  overflow: visible;
+}
+
+.ball-flame-wrap.is-active {
+  animation: flameWrapBob 0.28s ease-in-out infinite alternate;
+}
+
+.ball-flame {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  transform-origin: 50% 90%;
+  pointer-events: none;
+}
+
+.ball-flame--outer {
+  width: 88%;
+  height: 95%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 85%, rgba(255, 120, 0, 0.85) 0%, rgba(255, 50, 0, 0.45) 45%, transparent 72%);
+  animation: flameOuter 0.16s ease-in-out infinite alternate;
+  filter: blur(1px);
+}
+
+.ball-flame--mid {
+  width: 62%;
+  height: 72%;
+  bottom: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 88%, rgba(255, 220, 80, 0.95) 0%, rgba(255, 140, 0, 0.7) 50%, transparent 78%);
+  animation: flameMid 0.12s ease-in-out infinite alternate-reverse;
+}
+
+.ball-flame--core {
+  width: 38%;
+  height: 48%;
+  bottom: 38%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 90%, #fff 0%, #ffe566 35%, rgba(255, 100, 0, 0.5) 70%, transparent 85%);
+  animation: flameCore 0.1s ease-in-out infinite alternate;
+}
+
+.plinko-board__slots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--zone-slots);
+  z-index: 10;
+  overflow: hidden;
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  border-right: 2px solid rgba(0, 0, 0, 0.4);
+  padding: 0.25rem;
+  min-width: 0;
+}
+
+.slot:last-child {
+  border-right: none;
+}
+
+.slot--coin {
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.25), rgba(180, 140, 0, 0.15));
+}
+
+.slot--bomb {
+  background: linear-gradient(180deg, rgba(255, 71, 87, 0.3), rgba(120, 20, 30, 0.2));
+}
+
+.slot--neutral {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+
+.slot--knife {
+  background: linear-gradient(180deg, rgba(100, 160, 220, 0.35), rgba(40, 70, 100, 0.25));
+  border-color: rgba(120, 180, 220, 0.4);
+}
+
+.slot--thief {
+  background: linear-gradient(180deg, rgba(140, 80, 200, 0.35), rgba(60, 30, 90, 0.25));
+  border-color: rgba(180, 120, 220, 0.4);
+}
+
+.slot--knife .slot__value,
+.slot--thief .slot__value {
+  font-size: clamp(0.45rem, 1.1vw, 0.7rem);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.slot.is-landed {
+  animation: slotLand 0.4s ease-out;
+}
+
+.slot__icons {
+  font-size: clamp(0.7rem, 1.8vw, 1.1rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.slot__value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(0.55rem, 1.4vw, 0.85rem);
+  font-weight: 700;
+}
+
+.slot--coin .slot__value {
+  color: var(--gold);
+}
+
+.slot--bomb .slot__value {
+  color: #ff6b7a;
+}
+
+.slot--bomb.slot--small .slot__icons { font-size: clamp(0.65rem, 1.5vw, 0.95rem); }
+.slot--bomb.slot--medium .slot__icons { font-size: clamp(0.85rem, 2vw, 1.25rem); }
+.slot--bomb.slot--large .slot__icons { font-size: clamp(1rem, 2.5vw, 1.5rem); }
+
+.plinko-board.is-regenerating {
+  animation: boardFade 0.6s ease-in-out;
+}

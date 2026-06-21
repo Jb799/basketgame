@@ -1,0 +1,34 @@
+{
+  "id": "plinko",
+  "name": "Plinko",
+  "description": "Lancez la balle, évitez les bombes, empilez les pièces !",
+  "version": "1.0.0",
+  "columns": 7,
+  "players": { "min": 2, "max": 5 },
+  "icon": "🪙",
+  "accent": "#ffd700",
+  "server": { "entry": "server/index.js" },
+  "controller": {
+    "requiresPlayerRoster": true,
+    "startOptions": [
+      {
+        "id": "playerCount",
+        "type": "number",
+        "label": "Nombre de joueurs",
+        "min": 2,
+        "max": 5,
+        "default": 2
+      }
+    ],
+    "actions": [
+      {
+        "id": "new-game",
+        "label": "Nouvelle partie",
+        "method": "POST",
+        "path": "/api/reset",
+        "style": "primary"
+      }
+    ]
+  },
+  "docs": "docs/README.md"
+}

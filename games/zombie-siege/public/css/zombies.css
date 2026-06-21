@@ -1,0 +1,172 @@
+/*
+ * zombies.css — Sprites zombie + FX de combat.
+ * Tout est positionné en pixels via transform translate (cf. layout.js).
+ * left/top restent à 0 ; le module JS écrit la position exacte dans transform.
+ */
+
+.zombie {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: auto;
+  will-change: transform;
+  z-index: 3;
+}
+
+.zombie__sprite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+}
+
+.zombie__emoji {
+  display: block;
+  font-size: clamp(14px, 2.2vw, 24px);
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+  animation: zombieWobble 0.8s ease-in-out infinite alternate;
+  user-select: none;
+}
+
+.zombie--spawn .zombie__emoji {
+  animation: zombieSpawn 0.4s ease-out forwards, zombieWobble 0.8s ease-in-out 0.4s infinite alternate;
+}
+
+.zombie--falling {
+  z-index: 10;
+}
+
+@keyframes zombieWobble {
+  from { transform: rotate(-4deg); }
+  to { transform: rotate(4deg); }
+}
+
+@keyframes zombieSpawn {
+  from {
+    transform: scale(0.3) translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Bombe (projectile)                                                  */
+/* ------------------------------------------------------------------ */
+
+.projectile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 20;
+  pointer-events: none;
+  width: auto;
+  height: auto;
+  will-change: transform;
+}
+
+.projectile__emoji {
+  display: block;
+  font-size: clamp(14px, 2.2vw, 22px);
+  line-height: 1;
+  text-align: center;
+  filter: drop-shadow(0 0 6px rgba(255, 100, 0, 0.7));
+  animation: bombSpin 0.45s linear infinite;
+  user-select: none;
+}
+
+@keyframes bombSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Impact : explosion + poof (raté)                                   */
+/* ------------------------------------------------------------------ */
+
+.fx-impact {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.fx-impact__boom {
+  display: block;
+  font-size: clamp(22px, 4vw, 40px);
+  line-height: 1;
+  animation: fxBoom 0.45s ease-out forwards;
+}
+
+.fx-impact--miss .fx-impact__boom {
+  font-size: clamp(16px, 2.6vw, 26px);
+  opacity: 0.85;
+}
+
+@keyframes fxBoom {
+  0% { transform: scale(0.3); opacity: 0; }
+  30% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1.1); opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Tache verte (splat)                                                */
+/* ------------------------------------------------------------------ */
+
+.fx-splat {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.fx-splat__mark {
+  display: block;
+  width: clamp(28px, 5vw, 48px);
+  height: clamp(20px, 3.5vw, 36px);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(80, 200, 60, 0.78) 0%, rgba(40, 120, 30, 0.5) 45%, transparent 70%);
+  box-shadow: 0 0 12px rgba(60, 180, 40, 0.45);
+  animation: fxSplat 1600ms ease-out forwards;
+}
+
+@keyframes fxSplat {
+  0% { transform: scale(0.4); opacity: 0; }
+  12% { transform: scale(1); opacity: 0.85; }
+  70% { transform: scale(1); opacity: 0.85; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Score pop                                                          */
+/* ------------------------------------------------------------------ */
+
+.fx-score {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.fx-score__txt {
+  display: block;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: clamp(14px, 2vw, 22px);
+  color: var(--brand-orange);
+  text-shadow: 0 0 12px var(--brand-orange-glow);
+  animation: fxScore 0.9s ease-out forwards;
+}
+
+@keyframes fxScore {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+}

@@ -1,0 +1,108 @@
+/**
+ * player-faces.css — Visages joueurs réutilisables (servi sous /shared).
+ *
+ * Couleurs de slot alignées sur les accents des jeux (p1 orange … p5).
+ */
+
+.player-face {
+  --face-size: 48px;
+  --face-color: var(--brand-orange, #ff6b00);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--face-size);
+  height: var(--face-size);
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid var(--face-color);
+  box-shadow: 0 0 12px -2px var(--face-color);
+  vertical-align: middle;
+}
+
+.player-face__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.player-face--placeholder .player-face__initials {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--face-size) * 0.38);
+  color: var(--face-color);
+  letter-spacing: 0.02em;
+}
+
+/* Tailles */
+.player-face--sm { --face-size: 34px; }
+.player-face--md { --face-size: 52px; }
+.player-face--lg { --face-size: 84px; }
+.player-face--xl { --face-size: 128px; }
+.player-face--xxl { --face-size: 168px; }
+
+/* Couleurs de slot */
+.player-face--p1 { --face-color: #ff6b00; }
+.player-face--p2 { --face-color: #22d3ee; }
+.player-face--p3 { --face-color: #a855f7; }
+.player-face--p4 { --face-color: #22c55e; }
+.player-face--p5 { --face-color: #f43f5e; }
+
+/* Accent variante : la victoire pulse en doré, la défaite se désature */
+.player-face--win {
+  border-color: #ffd34d;
+  box-shadow: 0 0 16px -1px #ffd34d;
+}
+
+.player-face--lose {
+  filter: saturate(0.6) brightness(0.85);
+}
+
+/* ─── Effet : têtes qui tombent (réutilisable par tous les jeux) ─── */
+
+.player-head-drop-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.player-head-drop {
+  position: absolute;
+  top: 0;
+  width: var(--drop-size, clamp(120px, 18vw, 260px));
+  will-change: transform, opacity;
+  animation: player-head-fall var(--drop-duration, 3s) cubic-bezier(0.45, 0, 0.7, 1) forwards;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
+}
+
+.player-head-drop__img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Repli (pas de PNG détouré) : le visage circulaire prend la taille de la tête. */
+.player-head-drop__face {
+  --face-size: var(--drop-size, clamp(120px, 18vw, 260px));
+}
+
+@keyframes player-head-fall {
+  0% {
+    transform: translate(-50%, -28vh) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--drop-sway, 0px)), 118vh) rotate(var(--drop-rot, 360deg));
+    opacity: 1;
+  }
+}

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="BasketGame — contrôleur : choisissez et lancez un jeu sur la télé." />
+  <title>BasketGame — Contrôleur</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="/shared/column-layout.css" />
+</head>
+<body>
+  <main class="controller">
+    <header class="topbar">
+      <div>
+        <h1 class="topbar__title brand">Basket<span class="brand__accent">Game</span></h1>
+        <p class="topbar__subtitle">Contrôleur — choisissez un jeu pour la télé</p>
+      </div>
+      <div class="topbar__nav">
+        <a class="btn btn--ghost" href="/sensors">📡 Capteurs IR</a>
+        <a class="btn btn--ghost" href="/players">👤 Gérer les joueurs</a>
+        <span class="connection" id="connection">
+          <span class="connection__dot"></span>
+          <span id="connection-label">Connexion…</span>
+        </span>
+      </div>
+    </header>
+
+    <section class="esp-banner" id="esp-banner" hidden>
+      <span class="esp-banner__icon" id="esp-banner-icon">📡</span>
+      <div class="esp-banner__info">
+        <div class="esp-banner__label" id="esp-banner-label">En attente de l'ESP32</div>
+        <p class="esp-banner__text" id="esp-banner-text">
+          Branchez l'ESP32 en USB pour démarrer. En attendant, consultez le
+          <a href="/sensors">dashboard capteurs</a> ou gérez les
+          <a href="/players">joueurs</a>.
+        </p>
+      </div>
+      <a class="btn btn--ghost" href="/sensors">Voir les capteurs</a>
+    </section>
+
+    <section class="active-banner" id="active-banner" hidden>
+      <span class="active-banner__icon" id="active-icon">🎮</span>
+      <div class="active-banner__info">
+        <div class="active-banner__label">Jeu en cours sur la télé</div>
+        <div class="active-banner__name" id="active-name">—</div>
+      </div>
+      <button class="btn btn--danger" id="btn-stop">Arrêter</button>
+    </section>
+
+    <section class="game-controls" id="game-controls" hidden aria-label="Contrôles du jeu en cours">
+      <h2 class="section-title">Contrôles du jeu</h2>
+      <div class="game-controls__grid" id="game-controls-grid"></div>
+      <p class="game-controls__feedback" id="game-controls-feedback" hidden></p>
+    </section>
+
+    <h2 class="section-title" id="games-section-title">Jeux disponibles</h2>
+    <p class="esp-games-hint" id="esp-games-hint" hidden>
+      Les jeux seront disponibles une fois l'ESP32 connecté et calibré.
+    </p>
+    <div class="games-grid" id="games-grid"></div>
+    <div class="empty-state" id="empty-state" hidden>
+      Aucun jeu trouvé. Ajoutez un dossier dans <code>games/</code> avec un
+      <code>game.config.json</code>.
+    </div>
+  </main>
+
+  <button
+    type="button"
+    class="simulate-tab"
+    id="simulate-tab"
+    aria-expanded="false"
+    aria-controls="simulate-panel"
+  >
+    <span class="simulate-tab__icon" aria-hidden="true">🏀</span>
+    <span class="simulate-tab__label">Simuler la balle</span>
+  </button>
+
+  <div class="simulate-backdrop" id="simulate-backdrop" hidden></div>
+
+  <section
+    class="simulate-panel"
+    id="simulate-panel"
+    hidden
+    role="dialog"
+    aria-labelledby="simulate-title"
+    aria-modal="true"
+  >
+    <header class="simulate-panel__header">
+      <div>
+        <h2 class="simulate-panel__title" id="simulate-title">Simulateur de balle</h2>
+        <p class="simulate-panel__hint">Comme l'ESP32 — une colonne par clic</p>
+      </div>
+      <button type="button" class="simulate-panel__close" id="simulate-close" aria-label="Fermer">
+        ✕
+      </button>
+    </header>
+    <div class="simulate-panel__grid platform-grid" id="simulate-grid"></div>
+    <p class="simulate-panel__legend">
+      Colonnes <strong>1</strong> (gauche) → <strong>7</strong> (droite), comme sur le plateau
+    </p>
+  </section>
+
+  <script src="/shared/ws-client.js"></script>
+  <script src="js/lobby.js"></script>
+  <script src="js/simulate.js"></script>
+</body>
+</html>

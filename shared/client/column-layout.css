@@ -1,0 +1,38 @@
+/**
+ * column-layout.css — Layout partagé "7 colonnes pleine largeur télé".
+ *
+ * Reflète la contrainte matérielle de la plateforme : un plateau horizontal
+ * divisé en 7 colonnes égales sur toute la largeur de l'écran. Les jeux dont
+ * l'affichage suit cette grille peuvent réutiliser ces classes plutôt que de
+ * redéfinir la grille à chaque fois.
+ *
+ * - .platform-grid    : conteneur grille 7 colonnes égales, pleine largeur.
+ * - .platform-column  : une colonne (cible des animations de chute).
+ */
+
+:root {
+  --platform-columns: 7;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--platform-columns), 1fr);
+  width: 100%;
+  gap: 0;
+}
+
+.platform-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Repères de colonnes (1 à 7) sous le plateau. */
+.platform-column-numbers {
+  display: grid;
+  grid-template-columns: repeat(var(--platform-columns), 1fr);
+  width: 100%;
+  text-align: center;
+}

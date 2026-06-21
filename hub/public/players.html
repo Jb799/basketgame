@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="description" content="BasketGame — gestion des joueurs : pseudo et photos." />
+  <title>BasketGame — Joueurs</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/players.css" />
+  <link rel="stylesheet" href="/shared/camera-capture.css" />
+</head>
+<body>
+  <main class="controller">
+    <header class="topbar">
+      <div>
+        <h1 class="topbar__title brand">Basket<span class="brand__accent">Game</span></h1>
+        <p class="topbar__subtitle">Joueurs — pseudo &amp; photos</p>
+      </div>
+      <a class="btn btn--ghost" href="/">← Contrôleur</a>
+    </header>
+
+    <div class="players-toolbar">
+      <h2 class="section-title">Joueurs enregistrés</h2>
+      <button class="btn btn--primary" id="btn-new">+ Nouveau joueur</button>
+    </div>
+
+    <div class="players-grid" id="players-grid"></div>
+    <div class="empty-state" id="empty-state" hidden>
+      Aucun joueur enregistré. Créez-en un pour l'utiliser dans les jeux.
+    </div>
+  </main>
+
+  <!-- Éditeur de profil (création / édition) -->
+  <div class="editor-backdrop" id="editor-backdrop" hidden></div>
+  <section class="editor" id="editor" hidden role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <header class="editor__header">
+      <h2 class="editor__title" id="editor-title">Nouveau joueur</h2>
+      <button type="button" class="editor__close" id="editor-close" aria-label="Fermer">✕</button>
+    </header>
+
+    <label class="editor__field">
+      <span class="editor__label">Pseudo</span>
+      <input type="text" id="field-pseudo" class="editor__input" maxlength="24" placeholder="Ex. Alice" autocomplete="off" />
+    </label>
+
+    <p class="editor__label">Photos</p>
+    <div class="photo-slots" id="photo-slots"></div>
+
+    <p class="editor__feedback" id="editor-feedback" hidden></p>
+
+    <div class="editor__actions">
+      <button type="button" class="btn btn--ghost" id="editor-cancel">Annuler</button>
+      <button type="button" class="btn btn--primary" id="editor-save">Enregistrer</button>
+    </div>
+  </section>
+
+  <script src="/shared/camera-capture.js"></script>
+  <script src="js/players-manager.js"></script>
+</body>
+</html>

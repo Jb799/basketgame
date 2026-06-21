@@ -152,7 +152,12 @@ Frontend : aucune dépendance npm (Google Fonts en CDN, Web APIs natives).
 
 ---
 
+## 🔒 Données locales (non versionnées)
+
+Les profils joueurs (`data/players/`), la calibration capteurs (`data/sensors-config.json`) et les scores persistés (`games/*/server/scores.json`) restent **sur votre machine** et sont exclus du dépôt git (voir [`data/README.md`](data/README.md) et [`.gitignore`](.gitignore)).
+
+---
+
 ## 📄 Licence
 
 MIT.
-# basketgame

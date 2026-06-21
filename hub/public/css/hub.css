@@ -1,0 +1,838 @@
+/**
+ * hub.css — Design system du hub BasketGame.
+ * Palette : noir & orange (paniers physiques). Tokens dans /shared/brand.css.
+ */
+
+@import url('/shared/brand.css');
+
+:root {
+  --bg: var(--brand-black);
+  --bg-soft: var(--brand-black-soft);
+  --surface: var(--brand-black-surface);
+  --surface-2: var(--brand-black-elevated);
+  --border: var(--brand-black-border);
+  --text: var(--brand-text);
+  --text-dim: var(--brand-text-dim);
+  --accent: var(--brand-orange);
+  --accent-glow: var(--brand-orange-glow);
+  --success: var(--brand-success);
+  --danger: var(--brand-danger);
+  --warning: var(--brand-warning);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: radial-gradient(circle at 20% 0%, #1a1208 0%, var(--bg) 55%);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.brand {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.brand__accent {
+  color: var(--accent);
+}
+
+/* ─── Contrôleur ─────────────────────────────────────────────── */
+
+.controller {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.topbar__title {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+}
+
+.topbar__subtitle {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.topbar__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.connection__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.connection.is-online .connection__dot {
+  background: var(--success);
+  box-shadow: 0 0 10px var(--success);
+}
+
+.connection.is-offline .connection__dot {
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger);
+}
+
+/* Bannière jeu actif */
+.active-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(120deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--accent-glow);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.active-banner[hidden] {
+  display: none;
+}
+
+/* Bannière attente ESP32 */
+.esp-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: linear-gradient(120deg, rgba(255, 71, 87, 0.08), var(--surface));
+  border: 1px solid rgba(255, 71, 87, 0.35);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.esp-banner[hidden] {
+  display: none;
+}
+
+.esp-banner.is-calibrating {
+  background: linear-gradient(120deg, var(--brand-orange-soft), var(--surface));
+  border-color: var(--accent-glow);
+}
+
+.esp-banner__icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.esp-banner__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.esp-banner__label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--danger);
+  margin-bottom: 0.35rem;
+}
+
+.esp-banner.is-calibrating .esp-banner__label {
+  color: var(--accent);
+}
+
+.esp-banner__text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.esp-banner__text a {
+  color: var(--brand-orange-bright);
+  text-decoration: none;
+}
+
+.esp-banner__text a:hover {
+  text-decoration: underline;
+}
+
+.esp-games-hint {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin: -0.5rem 0 0.9rem;
+}
+
+.esp-games-hint[hidden] {
+  display: none;
+}
+
+.games-grid.is-locked .game-card {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.35);
+}
+
+.simulate-tab[hidden] {
+  display: none;
+}
+
+.active-banner__icon {
+  font-size: 2rem;
+}
+
+.active-banner__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.active-banner__label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.active-banner__name {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Contrôles du jeu actif (définis dans game.config.json) */
+.game-controls {
+  margin-bottom: 1.75rem;
+}
+
+.game-controls[hidden] {
+  display: none;
+}
+
+.game-controls__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.game-controls__feedback {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.game-controls__feedback[hidden] {
+  display: none;
+}
+
+.game-controls__feedback.is-success {
+  color: var(--brand-orange-bright);
+  border-color: var(--brand-orange-soft);
+}
+
+.game-controls__feedback.is-error {
+  color: var(--danger);
+  border-color: rgba(255, 71, 87, 0.35);
+}
+
+.btn--warning {
+  background: linear-gradient(120deg, var(--warning), #e6b800);
+  color: #1a1a1a;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  margin-bottom: 0.9rem;
+}
+
+/* Grille de cartes de jeux */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.game-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-glow);
+  box-shadow: var(--shadow);
+}
+
+.game-card.is-active {
+  border-color: var(--brand-orange);
+  box-shadow: 0 0 24px var(--brand-orange-soft);
+}
+
+.game-card__icon {
+  font-size: 2.4rem;
+}
+
+.game-card__name {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.game-card__desc {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.game-card__meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.tag {
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
+
+/* Panneau de configuration avant lancement */
+.start-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.start-options__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.start-options__label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.start-options__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.start-options__step {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.start-options__step:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.start-options__value {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* Sélection des joueurs avant lancement */
+.roster-picker {
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roster-picker__title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.roster-picker__empty {
+  font-size: 0.82rem;
+  color: var(--warning);
+}
+
+.roster-picker__empty a {
+  color: var(--accent);
+}
+
+.roster-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.roster-slot__avatar {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--accent-glow);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.roster-slot__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.roster-slot__avatar.is-placeholder {
+  color: var(--text-dim);
+}
+
+.roster-slot__select {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.roster-slot__select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.start-options__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.start-options__actions .btn {
+  flex: 1;
+}
+
+/* Boutons */
+.btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: var(--radius-sm);
+  transition: transform 0.15s, filter 0.15s, opacity 0.15s;
+  color: #fff;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: linear-gradient(120deg, var(--brand-orange-bright), var(--brand-orange-dark));
+  color: #0a0a0a;
+}
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn--danger {
+  background: linear-gradient(120deg, var(--danger), #e0344a);
+}
+
+.btn--ghost {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 3rem 1rem;
+}
+
+/* ─── Simulateur de balle (contrôleur) ───────────────────────── */
+
+body.simulate-open {
+  overflow: hidden;
+}
+
+.simulate-tab {
+  position: fixed;
+  right: clamp(0.75rem, 3vw, 1.25rem);
+  bottom: clamp(0.75rem, 3vw, 1.25rem);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--accent-glow);
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--surface-2), var(--surface));
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.simulate-tab:hover {
+  border-color: var(--brand-orange);
+  box-shadow: 0 0 20px var(--brand-orange-soft);
+}
+
+.simulate-tab:active {
+  transform: scale(0.97);
+}
+
+.simulate-tab__icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.simulate-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.simulate-backdrop[hidden] {
+  display: none;
+}
+
+.simulate-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 50;
+  width: min(100%, 520px);
+  max-height: min(85vh, 520px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--accent-glow);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  animation: simulate-slide-up 0.25s ease;
+}
+
+.simulate-panel[hidden] {
+  display: none;
+}
+
+@keyframes simulate-slide-up {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.simulate-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.simulate-panel__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.simulate-panel__hint {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.simulate-panel__close {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.simulate-panel__close:hover {
+  color: var(--text);
+  border-color: var(--accent-glow);
+}
+
+.simulate-panel__grid {
+  gap: 0.5rem;
+}
+
+.simulate-col {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 4.5rem;
+  padding: 0.5rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s;
+}
+
+.simulate-col:hover:not(:disabled) {
+  border-color: var(--brand-orange);
+  background: rgba(255, 107, 0, 0.08);
+}
+
+.simulate-col:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.simulate-col:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.simulate-col__ball {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.simulate-col__num {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.simulate-panel__legend {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* ─── Écran télé ─────────────────────────────────────────────── */
+
+.tv {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.tv__frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.tv__frame[hidden] {
+  display: none;
+}
+
+.tv-wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #1a1208 0%, var(--bg) 70%);
+}
+
+.tv-wait[hidden] {
+  display: none;
+}
+
+.tv-wait__lanes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.tv-wait__lane {
+  height: 100%;
+  border-right: 3px solid rgba(255, 255, 255, 0.45);
+}
+
+.tv-wait__lane:last-child {
+  border-right: none;
+}
+
+.tv-wait__lane.is-hit {
+  animation: tv-lane-flash 500ms ease;
+}
+
+@keyframes tv-lane-flash {
+  0%, 100% { background: transparent; }
+  30% { background: rgba(255, 107, 0, 0.12); }
+}
+
+.tv-wait__drop-ball {
+  position: absolute;
+  left: 50%;
+  top: -12%;
+  transform: translateX(-50%);
+  font-size: clamp(2.5rem, 7vw, 5.5rem);
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+  animation: tv-ball-drop 900ms cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+  will-change: top, opacity, transform;
+}
+
+@keyframes tv-ball-drop {
+  0% {
+    top: -12%;
+    opacity: 1;
+    transform: translateX(-50%) rotate(0deg);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    top: 115%;
+    opacity: 0;
+    transform: translateX(-50%) rotate(480deg);
+  }
+}
+
+.tv-wait__content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  pointer-events: none;
+}
+
+.tv-wait__logo {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(3rem, 9vw, 7rem);
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 40px var(--accent-glow);
+}
+
+.tv-wait__hint {
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
+  color: var(--text-dim);
+  max-width: 22ch;
+  line-height: 1.4;
+}
+
+.tv-wait__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1rem;
+  color: var(--text-dim);
+}
+
+.tv-wait__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 12px var(--danger);
+}
+
+.tv-wait.is-online .tv-wait__dot {
+  background: var(--success);
+  box-shadow: 0 0 12px var(--success);
+}

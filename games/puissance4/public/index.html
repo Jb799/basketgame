@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Puissance 4 connecté — Interface temps réel avec ESP32. Grille plein écran sur grand écran télé." />
+  <meta name="theme-color" content="#0a0a0a" />
+
+  <title>Puissance 4 — Live</title>
+
+  <!-- Remote Console Logger -->
+  <script>
+    (function() {
+      function sendLog(type, args) {
+        const msg = Array.from(args).map(arg => {
+          if (typeof arg === 'object') {
+            try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+          }
+          return String(arg);
+        }).join(' ');
+
+        fetch('api/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: type, message: msg })
+        }).catch(() => {});
+      }
+
+      const orgLog = console.log;
+      const orgWarn = console.warn;
+      const orgError = console.error;
+
+      console.log = function() {
+        orgLog.apply(console, arguments);
+        sendLog('LOG', arguments);
+      };
+      console.warn = function() {
+        orgWarn.apply(console, arguments);
+        sendLog('WARN', arguments);
+      };
+      console.error = function() {
+        orgError.apply(console, arguments);
+        sendLog('ERROR', arguments);
+      };
+
+      window.addEventListener('error', function(event) {
+        sendLog('EXCEPTION', [event.message, 'at', event.filename + ':' + event.lineno + ':' + event.colno]);
+      });
+      window.addEventListener('unhandledrejection', function(event) {
+        sendLog('UNHANDLED_REJECTION', [event.reason]);
+      });
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/shared/player-faces.css" />
+  <link rel="stylesheet" href="css/main.css?v=13" />
+  <link rel="stylesheet" href="css/board.css?v=14" />
+  <link rel="stylesheet" href="css/players.css?v=15" />
+  <link rel="stylesheet" href="css/animations.css?v=13" />
+</head>
+<body>
+
+  <canvas class="confetti-canvas" id="confetti-canvas" aria-hidden="true"></canvas>
+  <div id="screen-flash" class="screen-flash" aria-hidden="true" hidden></div>
+
+  <div class="series-win-overlay" id="series-win-overlay" role="status" aria-live="polite" hidden>
+    <div class="series-win-banner">
+      <div class="series-win-token" id="series-win-token" aria-hidden="true"></div>
+      <p class="series-win-label">Champion de la série</p>
+      <h2 class="series-win-title" id="series-win-title">Joueur Orange</h2>
+      <p class="series-win-subtitle" id="series-win-subtitle">5 victoires</p>
+    </div>
+  </div>
+
+  <main class="game-layout" id="game-layout" role="main">
+
+    <section class="board-section turn-p1" id="board-section" aria-label="Grille de jeu">
+      <div class="board-wrapper" id="board-wrapper">
+        <div class="board" id="board" role="grid" aria-label="Grille Puissance 4 (7 colonnes × 6 rangées)">
+          <!-- Cellules générées par JS -->
+        </div>
+        <div class="turn-indicator" id="turn-indicator" aria-live="polite" aria-atomic="true">
+          <span class="turn-indicator__pill">À TOI</span>
+          <span class="turn-indicator__name" id="turn-indicator-name">Joueur Orange</span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="player-hud" aria-label="Scores">
+      <div class="player-badge player-badge--p1" id="player1-badge" aria-label="Joueur orange">
+        <span class="player-badge__turn-pill" aria-hidden="true">À TOI</span>
+        <div class="player-badge__token" aria-hidden="true"></div>
+        <span class="player-badge__wins" id="p1-wins">0</span>
+      </div>
+      <div class="player-badge player-badge--p2" id="player2-badge" aria-label="Joueur bleu">
+        <span class="player-badge__wins" id="p2-wins">0</span>
+        <div class="player-badge__token" aria-hidden="true"></div>
+        <span class="player-badge__turn-pill" aria-hidden="true">À TOI</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <script src="shared/effects.js?v=10"></script>
+  <script src="/shared/player-faces.js"></script>
+  <script src="js/board.js?v=9"></script>
+  <script src="js/players.js?v=10"></script>
+  <script src="js/ui.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
+
+</body>
+</html>

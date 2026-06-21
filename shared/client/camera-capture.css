@@ -1,0 +1,225 @@
+/**
+ * camera-capture.css — Modal de capture caméra carrée (servi sous /shared).
+ */
+
+body.camera-open {
+  overflow: hidden;
+}
+
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.camera-modal__panel {
+  width: min(440px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--brand-black-surface, #1a1a1a);
+  border: 1px solid var(--brand-black-border, rgba(255, 255, 255, 0.08));
+  border-radius: 18px;
+  padding: 1.1rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.camera-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.camera-modal__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.camera-modal__hint {
+  color: var(--brand-text-dim, #a3a3a3);
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.camera-modal__close {
+  appearance: none;
+  border: 1px solid var(--brand-black-border, rgba(255, 255, 255, 0.08));
+  background: var(--brand-black-elevated, #242424);
+  color: var(--brand-text, #f5f5f5);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.camera-modal__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+}
+
+.camera-modal__video,
+.camera-modal__live,
+.camera-modal__preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Aperçu live en miroir (cohérent avec la capture). */
+.camera-modal__live {
+  transform: scaleX(-1);
+}
+
+/* Canvas de calcul Jeeliz : présent pour le rendu WebGL mais invisible. */
+.camera-modal__jee {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera-modal__frame {
+  position: absolute;
+  inset: 8%;
+  border: 2px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.camera-modal__badge {
+  position: absolute;
+  inset: 0.6rem 0.6rem auto auto;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.72rem;
+  backdrop-filter: blur(4px);
+}
+
+.camera-modal__error {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: 0.6rem;
+  text-align: center;
+  background: rgba(255, 71, 87, 0.85);
+  color: #fff;
+  font-size: 0.82rem;
+}
+
+/* --- Contrôles d'effets (filtres / fond / lentille) --- */
+.camera-fx {
+  margin-top: 0.85rem;
+}
+
+.camera-fx__tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.camera-fx__tab {
+  appearance: none;
+  flex: 1;
+  border: 1px solid var(--brand-black-border, rgba(255, 255, 255, 0.08));
+  background: var(--brand-black-elevated, #242424);
+  color: var(--brand-text-dim, #a3a3a3);
+  border-radius: 10px;
+  padding: 0.45rem 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.camera-fx__tab.is-active {
+  background: var(--brand-orange, #ff7a18);
+  border-color: var(--brand-orange, #ff7a18);
+  color: #1a1a1a;
+}
+
+.camera-fx__options {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  scrollbar-width: thin;
+}
+
+.camera-fx__opt {
+  appearance: none;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 3.2rem;
+  border: 2px solid transparent;
+  background: var(--brand-black-elevated, #242424);
+  color: var(--brand-text, #f5f5f5);
+  border-radius: 12px;
+  padding: 0.45rem 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.camera-fx__opt.is-active {
+  border-color: var(--brand-orange, #ff7a18);
+  background: rgba(255, 122, 24, 0.14);
+}
+
+.camera-fx__swatch {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.camera-fx__swatch--blur {
+  background: linear-gradient(135deg, #9ca3af, #4b5563);
+  filter: blur(1.5px);
+}
+
+.camera-fx__emoji {
+  font-size: 1.5rem;
+  line-height: 1.7rem;
+}
+
+.camera-fx__label {
+  font-size: 0.68rem;
+  color: var(--brand-text-dim, #a3a3a3);
+  white-space: nowrap;
+}
+
+.camera-fx__opt.is-active .camera-fx__label {
+  color: var(--brand-text, #f5f5f5);
+}
+
+.camera-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.camera-modal__actions .btn {
+  flex: 1;
+}

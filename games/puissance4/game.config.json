@@ -1,0 +1,34 @@
+{
+  "id": "puissance4",
+  "name": "Puissance 4",
+  "description": "Alignez 4 jetons d'affilée — horizontal, vertical ou diagonal. Premier à 5 manches gagne la série.",
+  "version": "1.0.0",
+  "columns": 7,
+  "players": { "min": 2, "max": 2 },
+  "icon": "🟠",
+  "accent": "#ff6b00",
+  "server": {
+    "entry": "server/index.js"
+  },
+  "controller": {
+    "requiresPlayerRoster": true,
+    "actions": [
+      {
+        "id": "reset-round",
+        "label": "Nouvelle partie",
+        "method": "POST",
+        "path": "/api/reset",
+        "style": "primary"
+      },
+      {
+        "id": "reset-scores",
+        "label": "Réinitialiser les scores",
+        "method": "POST",
+        "path": "/api/reset-scores",
+        "style": "danger",
+        "confirm": "Remettre tous les scores à zéro ?"
+      }
+    ]
+  },
+  "docs": "docs/README.md"
+}

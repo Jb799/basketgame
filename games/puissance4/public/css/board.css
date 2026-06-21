@@ -1,0 +1,341 @@
+/* ═══════════════════════════════════════════════════════════════
+   board.css — Grille 7 colonnes pleine largeur, jetons circulaires
+   ═══════════════════════════════════════════════════════════════ */
+
+.board-section {
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--board-padding) 0;
+}
+
+.board-wrapper {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ─── Bandeau « À TOI » sur la grille (lisible sur télé) ─────── */
+.turn-indicator {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(8px, 1.5vh, 16px);
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 18px);
+  padding: clamp(10px, 1.8vh, 16px) clamp(20px, 4vw, 40px);
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  background: rgba(10, 10, 10, 0.88);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+  animation: turnIndicatorPulse 1.6s ease-in-out infinite;
+}
+
+.turn-indicator--hidden {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+}
+
+.turn-indicator--p1 {
+  border-color: var(--p1-color);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.65),
+    0 0 40px var(--p1-glow);
+}
+
+.turn-indicator--p2 {
+  border-color: var(--p2-color);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.65),
+    0 0 40px var(--p2-glow);
+}
+
+.turn-indicator__pill {
+  font-family: var(--font-game);
+  font-size: clamp(0.75rem, 2vh, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  background: #fff;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.turn-indicator--p1 .turn-indicator__pill {
+  background: var(--p1-color);
+}
+
+.turn-indicator--p2 .turn-indicator__pill {
+  background: var(--p2-color);
+}
+
+.turn-indicator__name {
+  font-family: var(--font-game);
+  font-size: clamp(1.1rem, 3.2vh, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.turn-indicator--p1 .turn-indicator__name {
+  color: var(--p1-color);
+  text-shadow: 0 0 24px var(--p1-glow);
+}
+
+.turn-indicator--p2 .turn-indicator__name {
+  color: var(--p2-color);
+  text-shadow: 0 0 24px var(--p2-glow);
+}
+
+@keyframes turnIndicatorPulse {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50%      { transform: translateX(-50%) scale(1.04); }
+}
+
+/* Lueur de bordure selon le joueur actif */
+.board-section.turn-p1 .board {
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 2px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 3px rgba(255, 107, 0, 0.55),
+    0 0 48px rgba(255, 107, 0, 0.28);
+  border-top-color: rgba(255, 107, 0, 0.45);
+  border-bottom-color: rgba(255, 107, 0, 0.45);
+}
+
+.board-section.turn-p2 .board {
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 2px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 3px rgba(34, 211, 238, 0.55),
+    0 0 48px rgba(34, 211, 238, 0.22);
+  border-top-color: rgba(34, 211, 238, 0.45);
+  border-bottom-color: rgba(34, 211, 238, 0.45);
+}
+
+.board {
+  /*
+   * Pleine largeur : 7 colonnes égales = 7 divisions de l'écran.
+   * Pleine hauteur utile : 6 rangées égales dans l'espace restant.
+   * Les trous/jetons (100cqmin) restent circulaires dans chaque case.
+   */
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: var(--board-gap);
+  padding: var(--board-padding) 0;
+  background: var(--board-bg);
+  border-radius: 0;
+  border-top: 2px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    var(--shadow-lg),
+    inset 0 2px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+/* ─── Cellule ──────────────────────────────────────────────────── */
+.cell {
+  container-type: size;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.cell::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 100cqmin;
+  height: 100cqmin;
+  border-radius: 50%;
+  background: var(--cell-empty);
+  box-shadow:
+    inset 0 4px 12px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+/* ─── Jeton dans la cellule ────────────────────────────────────── */
+.cell__token {
+  grid-area: 1 / 1;
+  width: 100cqmin;
+  height: 100cqmin;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translateY(-300%) scale(0.8);
+  transition: opacity 50ms;
+}
+
+.cell.placed .cell__token {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ─── Jeton flottant (chute CSS) ───────────────────────────────── */
+.falling-token {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  transform-origin: center center;
+  animation: tokenColumnDrop var(--drop-duration, 650ms) forwards;
+  will-change: transform;
+}
+
+.falling-token.p1 {
+  background: var(--p1-gradient);
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.2),
+    0 4px 16px rgba(255, 107, 0, 0.35);
+}
+
+.falling-token.p2 {
+  background: var(--p2-gradient);
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.3),
+    0 4px 16px rgba(34, 211, 238, 0.35);
+}
+
+.falling-token::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 18%;
+  width: 40%;
+  height: 38%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.45) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cell.p1 .cell__token {
+  background: var(--p1-gradient);
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.2),
+    0 0 0 2px rgba(255, 107, 0, 0.3);
+}
+
+.cell.p2 .cell__token {
+  background: var(--p2-gradient);
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.3),
+    0 0 0 2px rgba(34, 211, 238, 0.3);
+}
+
+.cell__token::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 18%;
+  width: 40%;
+  height: 38%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.45) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── Trainée lumineuse colonne (sync balle) ───────────────────── */
+.cell.col-hit::before {
+  transition:
+    filter 90ms ease-out,
+    box-shadow 90ms ease-out;
+}
+
+.cell.col-hit-p1::before {
+  --hit-color: var(--p1-glow);
+}
+
+.cell.col-hit-p2::before {
+  --hit-color: var(--p2-glow);
+}
+
+.cell.col-hit-head::before {
+  filter: brightness(1.72);
+  box-shadow:
+    inset 0 0 30px var(--hit-color),
+    inset 0 0 14px rgba(255, 255, 255, 0.15),
+    0 0 22px var(--hit-color);
+}
+
+.cell.col-hit-trail::before {
+  filter: brightness(calc(1 + 0.5 * var(--trail-strength, 0.5)));
+  box-shadow:
+    inset 0 0 calc(18px * var(--trail-strength, 0.5)) var(--hit-color),
+    0 0 calc(12px * var(--trail-strength, 0.5)) var(--hit-color);
+}
+
+.cell.col-hit-land::before {
+  animation: columnLandPulse 320ms ease-out forwards;
+}
+
+/* ─── Cellule gagnante ─────────────────────────────────────────── */
+.cell.winning .cell__token {
+  animation: winningPulse 800ms ease-in-out infinite alternate;
+  z-index: 2;
+}
+
+.cell.p1.winning .cell__token {
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.2),
+    0 0 25px var(--p1-color),
+    0 0 50px var(--p1-glow),
+    0 0 0 4px var(--p1-color);
+}
+
+.cell.p2.winning .cell__token {
+  box-shadow:
+    inset 0 -4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 4px 8px rgba(255, 255, 255, 0.3),
+    0 0 25px var(--p2-color),
+    0 0 50px var(--p2-glow),
+    0 0 0 4px var(--p2-color);
+}
+
+.board.game-over .cell:not(.winning) {
+  opacity: 0.3;
+  filter: grayscale(0.6);
+  transition: opacity var(--transition-slow), filter var(--transition-slow);
+}
+
+.board.game-over .cell:not(.winning)::before {
+  opacity: 0.3;
+}
+
+/* ─── Shake colonne pleine ─────────────────────────────────────── */
+.board.shake-col-0  .cell[data-col="0"],
+.board.shake-col-1  .cell[data-col="1"],
+.board.shake-col-2  .cell[data-col="2"],
+.board.shake-col-3  .cell[data-col="3"],
+.board.shake-col-4  .cell[data-col="4"],
+.board.shake-col-5  .cell[data-col="5"],
+.board.shake-col-6  .cell[data-col="6"] {
+  animation: colShake 400ms ease;
+}

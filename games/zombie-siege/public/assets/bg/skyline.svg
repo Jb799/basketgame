@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a0808"/>
+      <stop offset="100%" stop-color="#2a1010"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="400" fill="url(#skyGrad)"/>
+  <!-- Silhouettes immeubles apocalyptiques -->
+  <rect x="0" y="180" width="80" height="220" fill="#0d0d0d"/>
+  <rect x="90" y="120" width="100" height="280" fill="#111"/>
+  <rect x="200" y="200" width="70" height="200" fill="#0a0a0a"/>
+  <rect x="280" y="90" width="120" height="310" fill="#151515"/>
+  <rect x="410" y="150" width="90" height="250" fill="#0d0d0d"/>
+  <rect x="510" y="60" width="140" height="340" fill="#121212"/>
+  <rect x="660" y="170" width="85" height="230" fill="#0f0f0f"/>
+  <rect x="755" y="100" width="110" height="300" fill="#141414"/>
+  <rect x="875" y="190" width="75" height="210" fill="#0c0c0c"/>
+  <rect x="960" y="130" width="100" height="270" fill="#111"/>
+  <rect x="1070" y="210" width="130" height="190" fill="#0a0a0a"/>
+  <!-- Fenêtres éteintes / allumées -->
+  <g fill="#ff8833" opacity="0.4">
+    <rect x="300" y="130" width="12" height="16" rx="1"/>
+    <rect x="330" y="160" width="12" height="16" rx="1"/>
+    <rect x="540" y="100" width="14" height="18" rx="1"/>
+    <rect x="570" y="140" width="14" height="18" rx="1"/>
+    <rect x="780" y="150" width="12" height="16" rx="1"/>
+    <rect x="990" y="180" width="12" height="16" rx="1"/>
+  </g>
+  <!-- Fumée -->
+  <ellipse cx="550" cy="50" rx="60" ry="30" fill="#333" opacity="0.3"/>
+  <ellipse cx="300" cy="70" rx="40" ry="25" fill="#444" opacity="0.25"/>
+  <!-- Sol -->
+  <rect x="0" y="380" width="1200" height="20" fill="#1a1510"/>
+</svg>

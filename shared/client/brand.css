@@ -1,0 +1,36 @@
+/**
+ * brand.css — Identité visuelle BasketGame (paniers physiques noir & orange).
+ * Importé par le hub et les jeux via /shared/brand.css.
+ */
+
+:root {
+  /* Noir — fonds et surfaces */
+  --brand-black: #0a0a0a;
+  --brand-black-soft: #111111;
+  --brand-black-surface: #1a1a1a;
+  --brand-black-elevated: #242424;
+  --brand-black-border: rgba(255, 255, 255, 0.08);
+
+  /* Orange — accent principal (couleur des paniers) */
+  --brand-orange: #ff6b00;
+  --brand-orange-bright: #ff8533;
+  --brand-orange-dark: #e55d00;
+  --brand-orange-glow: rgba(255, 107, 0, 0.45);
+  --brand-orange-soft: rgba(255, 107, 0, 0.14);
+
+  /* Texte */
+  --brand-text: #f5f5f5;
+  --brand-text-dim: #a3a3a3;
+
+  /* Sémantique (hub) */
+  --brand-success: var(--brand-orange);
+  --brand-danger: #ff4757;
+  --brand-warning: #ffb347;
+
+  /* Second joueur — cyan (contraste fort avec l'orange sur fond noir) */
+  --brand-player2: #22d3ee;
+  --brand-player2-bright: #67e8f9;
+  --brand-player2-dark: #0891b2;
+  --brand-player2-glow: rgba(34, 211, 238, 0.5);
+  --brand-player2-soft: rgba(34, 211, 238, 0.14);
+}
