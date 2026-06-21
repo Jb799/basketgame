@@ -108,11 +108,16 @@ window.PlayerFaces = (function () {
    * @param {string} [opts.variant] - variante du repli circulaire (idle/win/lose)
    */
   function dropHead(slot, opts = {}) {
+    const variant = opts.variant || 'idle';
     const layer = ensureDropLayer();
     const el = document.createElement('div');
     el.className = 'player-head-drop';
 
-    const url = getCutoutUrl(slot);
+    // win/lose : photo dédiée ; sinon cutout neutre ; repli visage circulaire.
+    const url = variant === 'win' || variant === 'lose'
+      ? getUrl(slot, variant)
+      : (getCutoutUrl(slot) || getUrl(slot, 'idle'));
+
     if (url) {
       const img = document.createElement('img');
       img.src = url;
@@ -120,7 +125,7 @@ window.PlayerFaces = (function () {
       img.className = 'player-head-drop__img';
       el.appendChild(img);
     } else {
-      const face = createFace({ slot, variant: opts.variant || 'idle', size: 'xxl' });
+      const face = createFace({ slot, variant, size: 'xxl' });
       face.classList.add('player-head-drop__face');
       el.appendChild(face);
     }

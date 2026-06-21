@@ -6,6 +6,12 @@
 
 Accumuler le maximum de **pièces** en 5 tours. Chaque case du bas rapporte des pièces, des bombes (perte), des mini-jeux spéciaux ou rien (neutre). Le joueur avec le plus de pièces à la fin remporte la partie.
 
+### Victoire et égalité
+
+1. **Classement** par score final décroissant.
+2. **Départage** : si égalité de score, le joueur ayant **collecté le plus de pièces** (`coinsWon`) est devant.
+3. **Égalité parfaite** (même score **et** mêmes pièces récoltées entre plusieurs joueurs en tête) : **aucun vainqueur** — l'écran affiche **« Égalité ! »** avec les ex-aequo (pas de pluie de têtes, pas de médaille d'or unique).
+
 ## Règles
 
 | Élément | Valeur |
@@ -36,8 +42,8 @@ Le module partagé `window.PlayerFaces` affiche la bonne photo selon le contexte
 
 Les visages sont affichés en grand sur la télé : score volant en taille `lg`, podium
 en `xl`/`xxl`. À l'affichage du podium, une **pluie de têtes** du vainqueur
-(`PlayerFaces.rainHeads`) fait tomber sa tête détourée (PNG transparent, `cutoutUrl`
-du roster) en cascade.
+(`PlayerFaces.rainHeads`, variante `win`) fait tomber la photo de victoire en cascade
+(ou le cutout neutre si variante `idle`). En cas d'**égalité**, la pluie est désactivée.
 
 Sans roster, le jeu retombe sur les libellés « Joueur N » sans photo (et la pluie de
 têtes est désactivée).
@@ -81,15 +87,17 @@ Les largeurs des cases et leur répartition sont **aléatoires** à chaque tour.
 
 Quand la balle atterrit sur une case **couteau** ou **voleur** :
 
+> Si **aucun adversaire** n'a de pièces (`score > 0`), le mini-jeu est **annulé** (`minigameSkipped: true`) — le tour passe normalement sans second lancer.
+
 1. La balle **termine sa chute** sur la case + FX d'atterrissage.
 2. Pause HUD (~0,4 s) puis bannière d'intro (~0,65 s) « MINI-JEU COUTEAU / VOLEUR ».
-3. L'overlay mini-jeu remplace **uniquement la zone plateau** (tabs joueurs visibles en bas) : grille **7 colonnes** avec repères `0`–`6` en haut, cases **VIDE** 🕳️ ou **numéro de joueur** en grand.
+3. L'overlay mini-jeu remplace **uniquement la zone plateau** (tabs joueurs visibles en bas) : grille **7 colonnes** avec repères **`1`–`7`** en haut (affichage joueur ; l'ESP32 reste indexé `0`–`6`), cases **VIDE** 🕳️ ou **numéro de joueur** en grand.
 4. Les données du layout arrivent dans `BALL_DROP.minigameStart` (et en secours via `MINIGAME_START` ou `state.minigame`).
-5. Le joueur actif **relance la balle** via l'ESP32 pour viser une colonne (`0`–`6`).
+5. Le joueur actif **relance la balle** via l'ESP32 pour viser une colonne (trigger `0`–`6` = colonne affichée `1`–`7`).
 6. **VIDE** → texte PERDU, aucun effet sur les scores.
-7. **Joueur touché** → slot machine affiche le **montant réellement appliqué** (5 / 10 / 15 / 20, ou moins si la victime n'a pas assez de pièces) puis animation vers les joueurs :
+7. **Joueur touché** → slot machine affiche un **pourcentage tiré** parmi **5 %, 10 %, 15 %, 20 %, 25 %**, puis le **montant entier** réellement appliqué (arrondi, minimum 1 pièce si la victime en a) :
    - **Couteau** : la victime **perd** ce montant (plancher 0).
-   - **Voleur** : la victime **perd** N et le lanceur **gagne exactement N** (si la victime n'a que 3 pièces et le tirage est 10, vol de 3).
+   - **Voleur** : la victime **perd** N et le lanceur **gagne exactement N**.
 8. Le tour passe ensuite normalement au joueur suivant sur le **même plateau Plinko** (pas de second lancer principal, pas de nouveau plateau avant la fin du tour).
 
 Le mode feu **ne s'applique pas** aux cases couteau/voleur.
@@ -131,7 +139,7 @@ Au nouveau tour : phase `board_transition` pendant `BOARD_TRANSITION_MS` (2500 m
 | `RESOLVE_MS` | 6500 | `server/index.js` |
 | `MINIGAME_ARM_MS` | 5500 | `server/index.js` |
 | `MINIGAME_RESOLVE_MS` | 5500 | `server/index.js` |
-| `MINIGAME_AMOUNTS` | 5, 10, 15, 20 | `shared/modules/plinko/minigame.js` |
+| `MINIGAME_PERCENTS` | 5, 10, 15, 20, 25 (%) | `shared/modules/plinko/minigame.js` |
 | `FIRE_STREAK_MIN` | 3 | `shared/modules/plinko/simulator.js` |
 | `ROUND_SUMMARY_MS` | 4000 | `server/index.js` |
 | `BOARD_TRANSITION_MS` | 2500 | `server/index.js` |
@@ -142,7 +150,7 @@ Au nouveau tour : phase `board_transition` pendant `BOARD_TRANSITION_MS` (2500 m
 | Module | Rôle |
 |--------|------|
 | `shared/modules/plinko` | Génération plateau + simulation de chute + layout mini-jeu |
-| `shared/modules/plinko/minigame` | Layout 7 colonnes (trous/joueurs) + tirage 5 / 10 / 15 / 20 |
+| `shared/modules/plinko/minigame` | Layout 7 colonnes (trous/joueurs) + tirage % (5 / 10 / 15 / 20 / 25) |
 | `shared/modules/turn-manager` | Alternance des joueurs |
 | `shared/modules/scoring` | Scores en pièces (`addPoints`) |
 

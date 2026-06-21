@@ -35,13 +35,18 @@
       <span class="tag">7 capteurs</span>
     </div>
 
-    <section class="threshold-panel" id="thresholdPanel" aria-label="Réglage du seuil de détection">
+    <section class="threshold-panel" id="thresholdPanel" aria-label="Réglage du seuil global">
       <div class="threshold-panel__head">
         <div>
-          <h2 class="threshold-panel__title">Seuil de détection</h2>
-          <p class="threshold-panel__hint">Pourcentage de la baseline calibrée — plus bas = plus sensible</p>
+          <h2 class="threshold-panel__title">Seuil global</h2>
+          <p class="threshold-panel__hint">Pourcentage de la baseline calibrée — s'applique aux capteurs sans réglage individuel. Plus bas = plus sensible.</p>
         </div>
-        <div class="threshold-panel__value" id="thresholdValueDisplay">55<span>%</span></div>
+        <div class="threshold-panel__head-actions">
+          <div class="threshold-panel__value" id="thresholdValueDisplay">55<span>%</span></div>
+          <button type="button" class="btn btn--ghost btn--sm" id="btn-reset-all-overrides" hidden>
+            Réinitialiser tous les capteurs
+          </button>
+        </div>
       </div>
 
       <div class="threshold-panel__row">

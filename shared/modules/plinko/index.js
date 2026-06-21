@@ -13,11 +13,14 @@ const {
 const { simulateDrop, simulateDropSeeded, resolveSlot, FIRE_STREAK_MIN } = require('./simulator');
 const { createRng } = require('./rng');
 const {
+  MINIGAME_PERCENTS,
   MINIGAME_AMOUNTS,
-  MIN_AMOUNT,
-  MAX_AMOUNT,
+  MIN_PERCENT,
+  MAX_PERCENT,
   generateMinigameLayout,
+  rollMinigamePercent,
   rollMinigameAmount,
+  resolveMinigameCoins,
   resolveMinigameColumn,
 } = require('./minigame');
 
@@ -33,10 +36,13 @@ module.exports = {
   PEGS_PER_ROW,
   MIN_SLOT_WIDTH,
   FIRE_STREAK_MIN,
+  MINIGAME_PERCENTS,
   MINIGAME_AMOUNTS,
-  MIN_AMOUNT,
-  MAX_AMOUNT,
+  MIN_PERCENT,
+  MAX_PERCENT,
   generateMinigameLayout,
+  rollMinigamePercent,
   rollMinigameAmount,
+  resolveMinigameCoins,
   resolveMinigameColumn,
 };

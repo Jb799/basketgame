@@ -211,8 +211,12 @@ window.App = (function () {
 
     if (msg.type === 'GAME_OVER') {
       if (state) state.phase = 'game_over';
-      UI.setHud(null, null, 'Partie terminée', 'Podium');
-      Results.show(msg.ranking, msg.stats);
+      UI.setHud(null, null, 'Partie terminée', msg.isTie ? 'Égalité' : 'Podium');
+      Results.show(msg.ranking, msg.stats, {
+        isTie: msg.isTie,
+        tiedPlayers: msg.tiedPlayers,
+        winners: msg.winners,
+      });
     }
   }
 
@@ -241,7 +245,11 @@ window.App = (function () {
     }
 
     if (s.phase === 'game_over' && s.ranking) {
-      Results.show(s.ranking, s.stats);
+      Results.show(s.ranking, s.stats, {
+        isTie: s.isTie,
+        tiedPlayers: s.tiedPlayers,
+        winners: s.winners,
+      });
     }
   }
 
@@ -277,7 +285,10 @@ window.App = (function () {
     processingDrop = true;
 
     const droppingPlayer = msg.droppingPlayer || msg.player;
-    const triggersMinigame = msg.triggersMinigame || msg.slot?.type === 'knife' || msg.slot?.type === 'thief';
+    const minigameSkipped = Boolean(msg.minigameSkipped);
+    const triggersMinigame = !minigameSkipped && (
+      msg.triggersMinigame || msg.slot?.type === 'knife' || msg.slot?.type === 'thief'
+    );
 
     if (triggersMinigame && msg.minigameStart) {
       pendingMinigameStart = msg.minigameStart;
@@ -317,6 +328,20 @@ window.App = (function () {
 
     Players.clearDropping();
     Board.clearColumnHighlight();
+
+    if (minigameSkipped) {
+      UI.setHud(
+        msg.round,
+        state?.totalRounds || 5,
+        playerLabelText(droppingPlayer),
+        'Personne n\'a de pièces — mini-jeu annulé'
+      );
+      await UI.showResultPause(0, 0, { onFireAtLand: false });
+      if (state) state.phase = 'resolving';
+      processingDrop = false;
+      drainQueue();
+      return;
+    }
 
     if (triggersMinigame) {
       const kind = msg.minigameKind || msg.slot?.type;

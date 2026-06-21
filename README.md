@@ -40,7 +40,18 @@ Prérequis : **Node.js >= 18**.
 ./start.zsh --help       # voir toutes les options
 ```
 
-Le script [`start.zsh`](start.zsh) à la racine :
+### Windows — script PowerShell (recommandé)
+
+```powershell
+.\start.ps1              # démarre le hub, affiche les URLs (IP locale incluse)
+.\start.ps1 --open       # + ouvre contrôleur et télé dans le navigateur
+.\start.ps1 --dev        # mode développement (rechargement auto)
+.\start.ps1 --help       # voir toutes les options
+```
+
+> Si l'exécution de scripts est bloquée : `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` (une fois), ou lancer avec `powershell -ExecutionPolicy Bypass -File .\start.ps1`.
+
+Les scripts [`start.zsh`](start.zsh) (macOS) et [`start.ps1`](start.ps1) (Windows) à la racine :
 - vérifie Node.js >= 18 et installe les dépendances si `node_modules/` est absent
 - libère les ports 3000 (hub) et 3101 (jeu actif) s'ils sont déjà utilisés
 - affiche les URLs avec ton **IP locale** (Wi-Fi) pour accéder depuis la télé ou un mobile

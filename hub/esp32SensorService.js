@@ -13,8 +13,12 @@ const { ReadlineParser } = require('@serialport/parser-readline');
 const { PLATFORM_COLUMNS } = require('../shared/constants');
 const {
   DEFAULT_THRESHOLD_RATIO,
-  loadThresholdRatio,
-  saveThresholdRatio,
+  MIN_THRESHOLD_RATIO,
+  MAX_THRESHOLD_RATIO,
+  clampRatio,
+  loadSensorConfig,
+  saveSensorConfig,
+  getEffectiveRatio,
 } = require('./sensorConfig');
 
 const NUM_SENSORS = PLATFORM_COLUMNS;
@@ -22,8 +26,6 @@ const HISTORY_SIZE = 100;
 const BAUD_RATE = 115200;
 const CALIBRATION_DURATION_S = 5.0;
 const TRIGGER_DEBOUNCE_MS = 500;
-const MIN_THRESHOLD_RATIO = 0.1;
-const MAX_THRESHOLD_RATIO = 0.9;
 
 const PORT_KEYWORDS = ['CP210', 'CH340', 'UART', 'USB', 'usbserial', 'usbmodem', 'serial'];
 const PORT_SKIP = ['debug', 'bluetooth', 'wlan'];
@@ -64,7 +66,10 @@ class Esp32SensorService {
     this._starting = false;
     this._reconnectTimer = null;
     this.onStateChange = () => {};
-    this.thresholdRatio = loadThresholdRatio();
+
+    const config = loadSensorConfig();
+    this.thresholdRatio = config.thresholdRatio;
+    this.sensorOverrides = { ...config.sensorOverrides };
   }
 
   setOnStateChange(fn) {
@@ -81,6 +86,50 @@ class Esp32SensorService {
 
   setOnTrigger(fn) {
     this.onTrigger = fn;
+  }
+
+  _configSnapshot() {
+    return {
+      thresholdRatio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+    };
+  }
+
+  _persistConfig() {
+    saveSensorConfig(this._configSnapshot());
+  }
+
+  _getEffectiveRatio(sensorIndex) {
+    return getEffectiveRatio(sensorIndex, this._configSnapshot());
+  }
+
+  _getEffectiveRatios() {
+    return Array.from({ length: NUM_SENSORS }, (_, i) => this._getEffectiveRatio(i));
+  }
+
+  _recomputeThresholds() {
+    for (let i = 0; i < NUM_SENSORS; i++) {
+      this.sensorThresholds[i] = Math.round(this.sensorBaselines[i] * this._getEffectiveRatio(i));
+    }
+    if (!this.calibrationPhase) {
+      this._processDetection(this.sensorValues);
+    }
+  }
+
+  _thresholdMeta() {
+    return {
+      ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
+      thresholds: this.sensorThresholds,
+    };
+  }
+
+  _emitThresholdChanged(sensorIndex = null) {
+    this._emit('SENSOR_THRESHOLD_CHANGED', {
+      sensor: sensorIndex,
+      ...this._thresholdMeta(),
+    });
   }
 
   /** Prêt pour lancer un jeu (connecté + calibration terminée). */
@@ -102,41 +151,93 @@ class Esp32SensorService {
       counts: this.totalDetections,
       history: this.sensorHistory,
       ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
       calibrationDuration: CALIBRATION_DURATION_S,
     };
   }
 
   /**
-   * Met à jour le ratio de seuil (baseline × ratio), persiste et recalcule si calibré.
+   * Met à jour le ratio de seuil global, persiste et recalcule si calibré.
    * @param {number} ratio — entre 0.1 et 0.9
    */
   setThresholdRatio(ratio) {
-    const value = Number(ratio);
-    if (!Number.isFinite(value) || value < MIN_THRESHOLD_RATIO || value > MAX_THRESHOLD_RATIO) {
+    const value = clampRatio(ratio);
+    if (value == null) {
       return { ok: false, error: 'INVALID_THRESHOLD_RATIO' };
     }
 
     this.thresholdRatio = value;
-    saveThresholdRatio(value);
+    this._persistConfig();
 
     if (!this.calibrationPhase) {
-      this._applyThresholdRatio();
-      this._emit('SENSOR_THRESHOLD_CHANGED', {
-        ratio: this.thresholdRatio,
-        thresholds: this.sensorThresholds,
-      });
+      this._recomputeThresholds();
+      this._emitThresholdChanged(null);
       this._emitSensorUpdate();
     }
 
     this._notifyStateChange();
-    return { ok: true, ratio: this.thresholdRatio, thresholds: this.sensorThresholds };
+    return {
+      ok: true,
+      sensor: null,
+      ...this._thresholdMeta(),
+    };
   }
 
-  _applyThresholdRatio() {
-    for (let i = 0; i < NUM_SENSORS; i++) {
-      this.sensorThresholds[i] = Math.round(this.sensorBaselines[i] * this.thresholdRatio);
+  /**
+   * Override absolu pour un capteur (0–6). ratio null = retour au global.
+   * @param {number} sensorIndex
+   * @param {number|null} ratio
+   */
+  setSensorOverride(sensorIndex, ratio) {
+    const idx = Number(sensorIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= NUM_SENSORS) {
+      return { ok: false, error: 'INVALID_SENSOR' };
     }
-    this._processDetection(this.sensorValues);
+
+    const key = String(idx);
+    if (ratio == null) {
+      delete this.sensorOverrides[key];
+    } else {
+      const value = clampRatio(ratio);
+      if (value == null) {
+        return { ok: false, error: 'INVALID_THRESHOLD_RATIO' };
+      }
+      this.sensorOverrides[key] = value;
+    }
+
+    this._persistConfig();
+
+    if (!this.calibrationPhase) {
+      this._recomputeThresholds();
+      this._emitThresholdChanged(idx);
+      this._emitSensorUpdate();
+    }
+
+    this._notifyStateChange();
+    return {
+      ok: true,
+      sensor: idx,
+      ...this._thresholdMeta(),
+    };
+  }
+
+  resetAllSensorOverrides() {
+    this.sensorOverrides = {};
+    this._persistConfig();
+
+    if (!this.calibrationPhase) {
+      this._recomputeThresholds();
+      this._emitThresholdChanged(null);
+      this._emitSensorUpdate();
+    }
+
+    this._notifyStateChange();
+    return {
+      ok: true,
+      sensor: null,
+      ...this._thresholdMeta(),
+    };
   }
 
   _emit(type, data = {}) {
@@ -155,6 +256,8 @@ class Esp32SensorService {
       calibrating: this.calibrationPhase,
       port: this.serialPortName,
       ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
     });
   }
 
@@ -341,14 +444,16 @@ class Esp32SensorService {
 
     for (let i = 0; i < NUM_SENSORS; i++) {
       this.sensorBaselines[i] = trimmedMean(this.calibrationSamples[i]);
-      this.sensorThresholds[i] = Math.round(this.sensorBaselines[i] * this.thresholdRatio);
     }
+    this._recomputeThresholds();
 
     this.calibrationPhase = false;
     console.log('[ESP32] Calibration terminée');
     for (let i = 0; i < NUM_SENSORS; i++) {
+      const pct = Math.round(this._getEffectiveRatio(i) * 100);
+      const override = this.sensorOverrides[String(i)] != null ? ' (perso)' : '';
       console.log(
-        `  Capteur ${i + 1}: baseline=${this.sensorBaselines[i]} → seuil=${this.sensorThresholds[i]}`
+        `  Capteur ${i + 1}: baseline=${this.sensorBaselines[i]} → seuil=${this.sensorThresholds[i]} (${pct}%${override})`
       );
     }
 
@@ -356,6 +461,8 @@ class Esp32SensorService {
       baselines: this.sensorBaselines,
       thresholds: this.sensorThresholds,
       ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
     });
     this._notifyStateChange();
   }
@@ -403,6 +510,8 @@ class Esp32SensorService {
       calibrating: this.calibrationPhase,
       port: this.serialPortName,
       ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
     });
     if (this.serialConnected) {
       send({ type: 'SENSOR_SERIAL_STATUS', connected: true, port: this.serialPortName });
@@ -430,6 +539,8 @@ class Esp32SensorService {
         baselines: this.sensorBaselines,
         thresholds: this.sensorThresholds,
         ratio: this.thresholdRatio,
+        sensorOverrides: { ...this.sensorOverrides },
+        effectiveRatios: this._getEffectiveRatios(),
       });
     }
   }

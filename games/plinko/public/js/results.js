@@ -4,13 +4,25 @@
 
 window.Results = (function () {
   const overlay = document.getElementById('results-overlay');
+  const titleEl = document.querySelector('.results-panel__title');
   const podiumEl = document.getElementById('results-podium');
   const statsEl = document.getElementById('results-stats');
 
   const MEDALS = ['🥇', '🥈', '🥉'];
 
-  function show(ranking, stats) {
-    renderPodium(ranking);
+  function show(ranking, stats, opts = {}) {
+    const isTie = Boolean(opts.isTie);
+    const tiedPlayers = opts.tiedPlayers || [];
+    const winners = opts.winners || [];
+
+    if (titleEl) titleEl.textContent = isTie ? 'Égalité !' : 'Podium';
+
+    if (isTie) {
+      renderTiePodium(ranking, tiedPlayers);
+    } else {
+      renderPodium(ranking);
+    }
+
     renderStats(ranking, stats);
     overlay.hidden = false;
 
@@ -20,24 +32,78 @@ window.Results = (function () {
         Confetti.create(canvas);
         canvas._confettiInit = true;
       }
-      setTimeout(() => Confetti.burst(350), 400);
+      setTimeout(() => Confetti.burst(isTie ? 180 : 350), 400);
     }
-    if (Sounds.victory) Sounds.victory(1);
 
-    // Pluie de têtes du vainqueur sur le podium.
-    if (window.PlayerFaces && PlayerFaces.hasRoster() && ranking.length) {
-      const winner = ranking[0].player;
-      setTimeout(() => PlayerFaces.rainHeads([winner], { count: 16, variant: 'win' }), 500);
+    if (!isTie && Sounds.victory) Sounds.victory(1);
+
+    if (!isTie && window.PlayerFaces && PlayerFaces.hasRoster() && winners.length) {
+      setTimeout(() => PlayerFaces.rainHeads(winners, { count: 16, variant: 'win' }), 500);
     }
   }
 
   function hide() {
     overlay.hidden = true;
+    if (titleEl) titleEl.textContent = 'Podium';
     if (window.Confetti) Confetti.stop();
   }
 
   function playerLabel(n) {
     return window.PlayerFaces ? PlayerFaces.getPseudo(n) : `Joueur ${n}`;
+  }
+
+  function renderTiePodium(ranking, tiedPlayers) {
+    podiumEl.innerHTML = '';
+
+    const subtitle = document.createElement('p');
+    subtitle.className = 'results-panel__tie-subtitle';
+    subtitle.textContent = 'Même score et mêmes pièces récoltées';
+    podiumEl.appendChild(subtitle);
+
+    const row = document.createElement('div');
+    row.className = 'results-panel__tie-row';
+
+    for (const player of tiedPlayers) {
+      const entry = ranking.find((e) => e.player === player);
+      if (!entry) continue;
+
+      const place = document.createElement('div');
+      place.className = 'podium-place podium-place--tie';
+
+      const medal = document.createElement('div');
+      medal.className = 'podium-place__medal';
+      medal.textContent = '🤝';
+
+      if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+        const face = PlayerFaces.createFace({ slot: entry.player, variant: 'idle', size: 'xl' });
+        face.classList.add('podium-place__face');
+        place.appendChild(face);
+      }
+
+      const bar = document.createElement('div');
+      bar.className = 'podium-place__bar podium-place__bar--tie';
+
+      const name = document.createElement('div');
+      name.className = 'podium-place__name';
+      name.textContent = playerLabel(entry.player);
+
+      const score = document.createElement('div');
+      score.className = 'podium-place__score';
+      score.textContent = `🪙 ${Math.max(0, entry.score)}`;
+
+      const collected = document.createElement('div');
+      collected.className = 'podium-place__collected';
+      collected.textContent = `+${entry.coinsWon ?? entry.stats?.coinsWon ?? 0} récoltées`;
+
+      bar.appendChild(name);
+      bar.appendChild(score);
+      bar.appendChild(collected);
+      place.appendChild(medal);
+      place.appendChild(bar);
+      row.appendChild(place);
+    }
+
+    podiumEl.appendChild(row);
   }
 
   function renderPodium(ranking) {
@@ -57,7 +123,6 @@ window.Results = (function () {
       medal.textContent = MEDALS[placeIndex] || '🏅';
 
       if (window.PlayerFaces && PlayerFaces.hasRoster()) {
-        // 1er = fierté ; dernier = défaite ; autres = neutre.
         const variant = placeIndex === 0 ? 'win' : (entry.player === lastPlayer ? 'lose' : 'idle');
         const face = PlayerFaces.createFace({ slot: entry.player, variant, size: 'xl' });
         face.classList.add('podium-place__face');
@@ -86,7 +151,7 @@ window.Results = (function () {
   function renderStats(ranking, stats) {
     statsEl.innerHTML = '';
     for (const entry of ranking) {
-      const s = stats[entry.player] || {};
+      const s = stats[entry.player] || entry.stats || {};
       const card = document.createElement('div');
       card.className = 'stat-card';
 

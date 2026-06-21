@@ -290,6 +290,73 @@ app.post('/api/sensors/recalibrate', (req, res) => {
 });
 
 function handleThresholdUpdate(req, res) {
+  if (req.body?.resetAll === true) {
+    const result = sensorService.resetAllSensorOverrides();
+    return res.json({
+      success: true,
+      resetAll: true,
+      ratio: result.ratio,
+      percent: Math.round(result.ratio * 100),
+      sensorOverrides: result.sensorOverrides,
+      effectiveRatios: result.effectiveRatios,
+      thresholds: result.thresholds,
+    });
+  }
+
+  const sensorRaw = req.body?.sensor;
+  const hasSensor = sensorRaw !== undefined && sensorRaw !== null && sensorRaw !== '';
+
+  if (hasSensor) {
+    const sensor = Number(sensorRaw);
+    if (!Number.isInteger(sensor) || sensor < 0 || sensor >= PLATFORM_COLUMNS) {
+      return res.status(400).json({ success: false, error: 'INVALID_SENSOR' });
+    }
+
+    if (req.body?.reset === true) {
+      const result = sensorService.setSensorOverride(sensor, null);
+      if (!result.ok) {
+        return res.status(400).json({ success: false, error: result.error });
+      }
+      return res.json({
+        success: true,
+        sensor,
+        reset: true,
+        ratio: result.ratio,
+        percent: Math.round(result.ratio * 100),
+        sensorOverrides: result.sensorOverrides,
+        effectiveRatios: result.effectiveRatios,
+        thresholds: result.thresholds,
+      });
+    }
+
+    const raw = req.body?.percent ?? req.body?.ratio;
+    if (raw === undefined || raw === null || raw === '') {
+      return res.status(400).json({ success: false, error: 'THRESHOLD_REQUIRED' });
+    }
+
+    const num = Number(raw);
+    if (!Number.isFinite(num)) {
+      return res.status(400).json({ success: false, error: 'INVALID_THRESHOLD_RATIO' });
+    }
+
+    const ratio = num > 1 ? num / 100 : num;
+    const result = sensorService.setSensorOverride(sensor, ratio);
+    if (!result.ok) {
+      return res.status(400).json({ success: false, error: result.error });
+    }
+
+    const effective = result.effectiveRatios[sensor];
+    return res.json({
+      success: true,
+      sensor,
+      ratio: result.ratio,
+      percent: Math.round(effective * 100),
+      sensorOverrides: result.sensorOverrides,
+      effectiveRatios: result.effectiveRatios,
+      thresholds: result.thresholds,
+    });
+  }
+
   const raw = req.body?.percent ?? req.body?.ratio;
   if (raw === undefined || raw === null || raw === '') {
     return res.status(400).json({ success: false, error: 'THRESHOLD_REQUIRED' });
@@ -310,6 +377,8 @@ function handleThresholdUpdate(req, res) {
     success: true,
     ratio: result.ratio,
     percent: Math.round(result.ratio * 100),
+    sensorOverrides: result.sensorOverrides,
+    effectiveRatios: result.effectiveRatios,
     thresholds: result.thresholds,
   });
 }

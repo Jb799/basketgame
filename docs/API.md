@@ -205,9 +205,20 @@ Gérés par `hub/esp32SensorService.js`. Calibration et détection côté hub ; 
 
 | Méthode | Route | Rôle |
 |---------|-------|------|
-| `GET` | `/api/sensors/status` | État capteurs (valeurs, seuils, baselines, `ratio`, port série, calibration) |
+| `GET` | `/api/sensors/status` | État capteurs (valeurs, seuils, baselines, `ratio`, `sensorOverrides`, `effectiveRatios`, port série, calibration) |
 | `POST` | `/api/sensors/recalibrate` | Relance la calibration (5 s, sans balle) — `503` si port non connecté |
-| `PATCH` / `POST` | `/api/sensors/threshold` | Modifie le ratio de seuil (`{ "percent": 55 }` ou `{ "ratio": 0.55 }`, plage 10–90 %) — persiste dans `data/sensors-config.json` et recalcule les seuils si calibré |
+| `PATCH` / `POST` | `/api/sensors/threshold` | Modifie les seuils (persiste dans `data/sensors-config.json`, recalcule si calibré) |
+
+Corps acceptés par `/api/sensors/threshold` :
+
+| Corps JSON | Effet |
+|------------|-------|
+| `{ "percent": 55 }` ou `{ "ratio": 0.55 }` | Seuil **global** (10–90 %) |
+| `{ "sensor": 2, "percent": 40 }` | Override absolu du capteur 3 (index `2`) |
+| `{ "sensor": 2, "reset": true }` | Retour au seuil global pour ce capteur |
+| `{ "resetAll": true }` | Efface tous les overrides individuels |
+
+Erreurs : `THRESHOLD_REQUIRED`, `INVALID_THRESHOLD_RATIO`, `INVALID_SENSOR` (400).
 
 ### Pages
 
@@ -229,12 +240,12 @@ Utilisé par le contrôleur et la télé. À la connexion et à chaque changemen
 |--------|---------|-------------|
 | `HUB_STATE` | `status`, `activeGameId`, `port`, `games[]` | Connexion + démarrage/arrêt/crash d'un jeu |
 | `HUB_TRIGGER` | `column` (0–6) | Trigger reçu alors qu'**aucun jeu n'est actif** (prévisualisation TV) |
-| `SENSOR_UPDATE` | `values[]`, `states[]`, `counts[]`, `history[][]`, `thresholds[]`, `baselines[]`, `ratio`, `calibrating`, `port` | Lecture série ESP32 (~10 ms) |
+| `SENSOR_UPDATE` | `values[]`, `states[]`, `counts[]`, `history[][]`, `thresholds[]`, `baselines[]`, `ratio`, `sensorOverrides`, `effectiveRatios`, `calibrating`, `port` | Lecture série ESP32 (~10 ms) |
 | `SENSOR_EVENT` | `sensor` (0–6), `state` (bool) | Front détection / libération capteur |
 | `SENSOR_CALIBRATION_START` | `duration` (s) | Début calibration |
 | `SENSOR_CALIBRATION_PROGRESS` | `progress`, `elapsed`, `values[]` | Pendant calibration |
-| `SENSOR_CALIBRATION_DONE` | `baselines[]`, `thresholds[]`, `ratio` | Calibration terminée |
-| `SENSOR_THRESHOLD_CHANGED` | `ratio`, `thresholds[]` | Ratio de seuil modifié (recalcul immédiat si calibré) |
+| `SENSOR_CALIBRATION_DONE` | `baselines[]`, `thresholds[]`, `ratio`, `sensorOverrides`, `effectiveRatios` | Calibration terminée |
+| `SENSOR_THRESHOLD_CHANGED` | `sensor` (index ou `null` si global), `ratio`, `sensorOverrides`, `effectiveRatios`, `thresholds[]` | Seuil modifié (recalcul immédiat si calibré) |
 | `SENSOR_SERIAL_STATUS` | `connected`, `port` ou `message` | Connexion / déconnexion port série |
 
 ```json

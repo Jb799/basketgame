@@ -89,6 +89,38 @@
   color: var(--gold);
 }
 
+.results-panel__tie-subtitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+
+.results-panel__tie-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: clamp(0.75rem, 3vw, 1.5rem);
+  width: 100%;
+}
+
+.podium-place--tie {
+  max-width: 140px;
+}
+
+.podium-place__bar--tie {
+  height: 110px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+}
+
+.podium-place__collected {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
+
 .results-panel__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

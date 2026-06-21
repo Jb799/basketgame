@@ -8,7 +8,8 @@ const {
   generateBoard,
   simulateDropSeeded,
   generateMinigameLayout,
-  rollMinigameAmount,
+  rollMinigamePercent,
+  resolveMinigameCoins,
   resolveMinigameColumn,
   createRng,
 } = require('../../../shared/modules/plinko');
@@ -94,6 +95,9 @@ class Game {
     this.playersPlayedThisRound = 0;
     this.lastDrop = null;
     this.ranking = null;
+    this.isTie = false;
+    this.tiedPlayers = [];
+    this.winners = [];
     this.roundScoresSnapshot = null;
     this.pendingAdvance = null;
     this.pendingMinigameArm = null;
@@ -267,10 +271,17 @@ class Game {
 
     if (advance.kind === 'game_over') {
       this.phase = 'game_over';
-      this.ranking = this._buildRanking();
+      const result = this._buildRankingResult();
+      this.ranking = result.ranking;
+      this.isTie = result.isTie;
+      this.tiedPlayers = result.tiedPlayers;
+      this.winners = result.winners;
       return {
         type: 'GAME_OVER',
         ranking: this.ranking,
+        isTie: this.isTie,
+        tiedPlayers: this.tiedPlayers,
+        winners: this.winners,
         stats: this.stats,
         scores: { ...this.scoring.scores },
         podium: this.ranking.slice(0, 3),
@@ -356,14 +367,36 @@ class Game {
     };
   }
 
-  _buildRanking() {
-    return [...this.players]
+  _hasMinigameTargets(activePlayer) {
+    const active = Number(activePlayer);
+    return this.players.some((p) => p !== active && this.scoring.get(p) > 0);
+  }
+
+  _buildRankingResult() {
+    const ranking = [...this.players]
       .map((p) => ({
         player: p,
         score: this.scoring.get(p),
+        coinsWon: this.stats[p].coinsWon,
         stats: { ...this.stats[p] },
       }))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return b.coinsWon - a.coinsWon;
+      });
+
+    const top = ranking[0];
+    const tiedAtTop = ranking.filter(
+      (e) => e.score === top.score && e.coinsWon === top.coinsWon
+    );
+    const isTie = tiedAtTop.length > 1;
+
+    return {
+      ranking,
+      isTie,
+      tiedPlayers: isTie ? tiedAtTop.map((e) => e.player) : [],
+      winners: isTie ? [] : [top.player],
+    };
   }
 
   dropBall(col) {
@@ -391,7 +424,13 @@ class Game {
     const dropSeed = this._nextSeed();
     const simulation = simulateDropSeeded(col, this.board, dropSeed);
     const slot = simulation.slot;
-    const triggersMinigame = MINIGAME_KINDS.includes(slot.type);
+    let triggersMinigame = MINIGAME_KINDS.includes(slot.type);
+    let minigameSkipped = false;
+
+    if (triggersMinigame && !this._hasMinigameTargets(droppingPlayer)) {
+      triggersMinigame = false;
+      minigameSkipped = true;
+    }
 
     const onFireAtLand = triggersMinigame ? false : simulation.onFireAtLand;
     const baseSlotDelta = simulation.delta;
@@ -424,7 +463,8 @@ class Game {
       multiplier: onFireAtLand && baseSlotDelta !== 0 ? 2 : 1,
       dropSeed,
       triggersMinigame,
-      minigameKind: triggersMinigame ? slot.type : null,
+      minigameSkipped,
+      minigameKind: triggersMinigame ? slot.type : (minigameSkipped ? slot.type : null),
       scores: { ...this.scoring.scores },
       round: this.round,
       phase: this.phase,
@@ -459,6 +499,7 @@ class Game {
     }
 
     const rng = createRng(this._nextSeed());
+    let rolledPercent = 0;
     let rolledAmount = 0;
     let resolvedAmount = 0;
     let targetType = cell.type;
@@ -467,7 +508,9 @@ class Game {
     let appliedToAttacker = 0;
 
     if (cell.type === 'player' && targetPlayer) {
-      rolledAmount = rollMinigameAmount(rng);
+      rolledPercent = rollMinigamePercent(rng);
+      const victimBalance = this.scoring.get(targetPlayer);
+      rolledAmount = resolveMinigameCoins(victimBalance, rolledPercent);
       const hit = this._resolveMinigameHit(kind, activePlayer, targetPlayer, rolledAmount);
       rolledAmount = hit.rolledAmount;
       resolvedAmount = hit.resolvedAmount;
@@ -487,6 +530,7 @@ class Game {
       targetCol: col,
       targetType,
       targetPlayer,
+      rolledPercent,
       rolledAmount,
       resolvedAmount,
       appliedToVictim,
@@ -517,6 +561,9 @@ class Game {
       stats: this.stats,
       lastDrop: this.lastDrop,
       ranking: this.ranking,
+      isTie: this.isTie,
+      tiedPlayers: this.tiedPlayers,
+      winners: this.winners,
       roundScoresSnapshot: this.roundScoresSnapshot,
       minigame: this.minigame
         ? {

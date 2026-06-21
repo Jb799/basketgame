@@ -36,8 +36,14 @@
   let thresholdEditing = false;
   let thresholdSaveTimer = null;
   let thresholdSavedTimer = null;
+  let sensorOverrides = {};
+  let effectiveRatios = new Array(NUM_CAPTEURS).fill(DEFAULT_THRESHOLD_PERCENT / 100);
+  let sensorEditing = new Array(NUM_CAPTEURS).fill(false);
+  let lastSavedSensorPercent = new Array(NUM_CAPTEURS).fill(DEFAULT_THRESHOLD_PERCENT);
+  const sensorSaveTimers = new Array(NUM_CAPTEURS).fill(null);
 
   const btnRecalib = document.getElementById('btn-recalib');
+  const btnResetAllOverrides = document.getElementById('btn-reset-all-overrides');
   const thresholdPanel = document.getElementById('thresholdPanel');
   const thresholdInput = document.getElementById('thresholdPercent');
   const thresholdSlider = document.getElementById('thresholdSlider');
@@ -70,6 +76,39 @@
           <span style="color: ${SENSOR_COLORS[i]};">GPIO ${GPIO_PINS[i]}</span>
         </div>
         <div id="thresh-${i}" class="sensor-thresh">Calibration…</div>
+        <div class="sensor-threshold" id="sensor-threshold-${i}">
+          <div class="sensor-threshold__head">
+            <span class="sensor-threshold__mode" id="thresh-mode-${i}">Global ${DEFAULT_THRESHOLD_PERCENT} %</span>
+            <span class="sensor-threshold__badge" id="thresh-badge-${i}" hidden>Perso</span>
+          </div>
+          <div class="sensor-threshold__row">
+            <input
+              type="range"
+              class="sensor-threshold__slider"
+              id="thresh-slider-${i}"
+              min="${MIN_THRESHOLD_PERCENT}"
+              max="${MAX_THRESHOLD_PERCENT}"
+              step="1"
+              value="${DEFAULT_THRESHOLD_PERCENT}"
+              aria-label="Seuil capteur ${i + 1}"
+            />
+            <label class="sensor-threshold__input-wrap" for="thresh-input-${i}">
+              <input
+                type="number"
+                class="sensor-threshold__input"
+                id="thresh-input-${i}"
+                min="${MIN_THRESHOLD_PERCENT}"
+                max="${MAX_THRESHOLD_PERCENT}"
+                step="1"
+                value="${DEFAULT_THRESHOLD_PERCENT}"
+              />
+              <span>%</span>
+            </label>
+          </div>
+          <button type="button" class="sensor-threshold__reset" id="thresh-reset-${i}" hidden>
+            Réinitialiser
+          </button>
+        </div>
       `;
       grid.appendChild(card);
 
@@ -83,7 +122,242 @@
         <div class="mg-val" id="mgval-${i}">4095</div>
       `;
       gauges.appendChild(mg);
+      initSensorThresholdControls(i);
     }
+  }
+
+  function hasOverride(idx) {
+    return sensorOverrides[String(idx)] != null;
+  }
+
+  function getEffectivePercent(idx) {
+    const ratio = effectiveRatios[idx] ?? thresholdPercent / 100;
+    return Math.round(ratio * 100);
+  }
+
+  function sensorSliderFill(pct) {
+    const span = MAX_THRESHOLD_PERCENT - MIN_THRESHOLD_PERCENT;
+    return `${((pct - MIN_THRESHOLD_PERCENT) / span) * 100}%`;
+  }
+
+  function formatThreshLine(idx) {
+    const base = sensorBaselines[idx];
+    const thresh = sensorThresholds[idx];
+    if (!base || base >= 4095) return 'Calibration…';
+    const pct = getEffectivePercent(idx);
+    const label = hasOverride(idx) ? `${pct} % perso` : `${pct} % global`;
+    return `Seuil: ${thresh}  Base: ${base}  (${label})`;
+  }
+
+  function updateSensorThreshLine(idx) {
+    const el = document.getElementById(`thresh-${idx}`);
+    if (el) el.textContent = formatThreshLine(idx);
+    updateSensorThresholdMode(idx);
+  }
+
+  function updateSensorThresholdMode(idx) {
+    const modeEl = document.getElementById(`thresh-mode-${idx}`);
+    const badgeEl = document.getElementById(`thresh-badge-${idx}`);
+    const resetBtn = document.getElementById(`thresh-reset-${idx}`);
+    const card = document.getElementById(`card-${idx}`);
+    const pct = getEffectivePercent(idx);
+
+    if (modeEl) {
+      modeEl.textContent = hasOverride(idx)
+        ? `Perso ${pct} %`
+        : `Global ${thresholdPercent} %`;
+    }
+    if (badgeEl) badgeEl.hidden = !hasOverride(idx);
+    if (resetBtn) resetBtn.hidden = !hasOverride(idx);
+    if (card) card.classList.toggle('has-override', hasOverride(idx));
+  }
+
+  function updateSensorThresholdInputs(idx, pct) {
+    const value = clampThresholdPercent(pct);
+    const slider = document.getElementById(`thresh-slider-${idx}`);
+    const input = document.getElementById(`thresh-input-${idx}`);
+    if (slider) {
+      slider.value = String(value);
+      slider.style.setProperty('--threshold-fill', sensorSliderFill(value));
+    }
+    if (input) input.value = String(value);
+  }
+
+  function previewSensorThreshold(idx, pct) {
+    const ratio = clampThresholdPercent(pct) / 100;
+    if (!sensorBaselines[idx]) return;
+    sensorThresholds[idx] = Math.round(sensorBaselines[idx] * ratio);
+    updateSensorThreshLine(idx);
+    updateBarMarker(idx);
+    if (chart) chart.update('none');
+  }
+
+  function previewGlobalThresholds(pct) {
+    const ratio = clampThresholdPercent(pct) / 100;
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      if (hasOverride(i)) continue;
+      if (!sensorBaselines[i] || sensorBaselines[i] >= 4095) continue;
+      sensorThresholds[i] = Math.round(sensorBaselines[i] * ratio);
+      effectiveRatios[i] = ratio;
+      updateSensorThreshLine(i);
+      updateBarMarker(i);
+    }
+    if (chart) chart.update('none');
+  }
+
+  function updateResetAllButtonVisibility() {
+    if (!btnResetAllOverrides) return;
+    btnResetAllOverrides.hidden = Object.keys(sensorOverrides).length === 0;
+  }
+
+  function applyThresholdPayload(data) {
+    if (data.baselines) sensorBaselines = data.baselines;
+    if (data.thresholds) sensorThresholds = data.thresholds;
+    if (data.sensorOverrides) sensorOverrides = { ...data.sensorOverrides };
+    if (data.effectiveRatios) effectiveRatios = data.effectiveRatios.slice();
+
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      if (!sensorEditing[i]) {
+        const pct = getEffectivePercent(i);
+        lastSavedSensorPercent[i] = pct;
+        updateSensorThresholdInputs(i, pct);
+      }
+      updateSensorThreshLine(i);
+      updateBarMarker(i);
+    }
+    updateResetAllButtonVisibility();
+    if (chart) chart.update('none');
+  }
+
+  async function postThresholdBody(body) {
+    const res = await fetch('/api/sensors/threshold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  async function saveSensorOverride(idx, percent) {
+    const pct = clampThresholdPercent(percent);
+    if (pct === lastSavedSensorPercent[idx] && hasOverride(idx)) return;
+
+    previewSensorThreshold(idx, pct);
+
+    try {
+      const { res, data } = await postThresholdBody({ sensor: idx, percent: pct });
+      if (!res.ok) {
+        updateSensorThresholdInputs(idx, lastSavedSensorPercent[idx]);
+        previewSensorThreshold(idx, lastSavedSensorPercent[idx]);
+        return;
+      }
+
+      lastSavedSensorPercent[idx] = data.percent ?? pct;
+      applyThresholdPayload({
+        baselines: sensorBaselines,
+        thresholds: data.thresholds,
+        sensorOverrides: data.sensorOverrides,
+        effectiveRatios: data.effectiveRatios,
+      });
+      if (data.ratio != null) syncThresholdRatioFromServer(data.ratio);
+    } catch {
+      updateSensorThresholdInputs(idx, lastSavedSensorPercent[idx]);
+      previewSensorThreshold(idx, lastSavedSensorPercent[idx]);
+    }
+  }
+
+  async function resetSensorOverride(idx) {
+    try {
+      const { res, data } = await postThresholdBody({ sensor: idx, reset: true });
+      if (!res.ok) return;
+
+      lastSavedSensorPercent[idx] = Math.round((data.effectiveRatios?.[idx] ?? thresholdPercent / 100) * 100);
+      applyThresholdPayload({
+        baselines: sensorBaselines,
+        thresholds: data.thresholds,
+        sensorOverrides: data.sensorOverrides,
+        effectiveRatios: data.effectiveRatios,
+      });
+      if (data.ratio != null) syncThresholdRatioFromServer(data.ratio);
+    } catch {
+      // silencieux
+    }
+  }
+
+  async function resetAllOverrides() {
+    try {
+      const { res, data } = await postThresholdBody({ resetAll: true });
+      if (!res.ok) return;
+
+      applyThresholdPayload({
+        baselines: sensorBaselines,
+        thresholds: data.thresholds,
+        sensorOverrides: data.sensorOverrides || {},
+        effectiveRatios: data.effectiveRatios,
+      });
+      if (data.ratio != null) syncThresholdRatioFromServer(data.ratio);
+      setThresholdStatus('Tous les capteurs suivent le seuil global', true);
+      setTimeout(() => setThresholdStatus(''), 1400);
+    } catch {
+      setThresholdStatus('Erreur réseau');
+    }
+  }
+
+  function scheduleSensorSave(idx, percent, delayMs = 300) {
+    clearTimeout(sensorSaveTimers[idx]);
+    sensorSaveTimers[idx] = setTimeout(() => {
+      saveSensorOverride(idx, percent);
+    }, delayMs);
+  }
+
+  function initSensorThresholdControls(idx) {
+    const slider = document.getElementById(`thresh-slider-${idx}`);
+    const input = document.getElementById(`thresh-input-${idx}`);
+    const resetBtn = document.getElementById(`thresh-reset-${idx}`);
+    if (!slider || !input) return;
+
+    const beginEdit = () => {
+      sensorEditing[idx] = true;
+      clearTimeout(sensorSaveTimers[idx]);
+    };
+    const endEdit = () => {
+      sensorEditing[idx] = false;
+    };
+
+    slider.addEventListener('pointerdown', beginEdit);
+    slider.addEventListener('pointerup', endEdit);
+    slider.addEventListener('input', () => {
+      const pct = clampThresholdPercent(slider.value);
+      updateSensorThresholdInputs(idx, pct);
+      previewSensorThreshold(idx, pct);
+      scheduleSensorSave(idx, pct, 320);
+    });
+    slider.addEventListener('change', () => {
+      endEdit();
+      clearTimeout(sensorSaveTimers[idx]);
+      saveSensorOverride(idx, slider.value);
+    });
+
+    input.addEventListener('focus', beginEdit);
+    input.addEventListener('blur', () => {
+      endEdit();
+      saveSensorOverride(idx, input.value);
+    });
+    input.addEventListener('input', () => {
+      const pct = clampThresholdPercent(input.value);
+      slider.value = String(pct);
+      slider.style.setProperty('--threshold-fill', sensorSliderFill(pct));
+      previewSensorThreshold(idx, pct);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.blur();
+      }
+    });
+
+    resetBtn?.addEventListener('click', () => resetSensorOverride(idx));
   }
 
   function initChart() {
@@ -303,26 +577,41 @@
   }
 
   function previewThresholdsFromPercent(pct) {
-    const ratio = clampThresholdPercent(pct) / 100;
-    for (let i = 0; i < NUM_CAPTEURS; i++) {
-      if (!sensorBaselines[i]) continue;
-      sensorThresholds[i] = Math.round(sensorBaselines[i] * ratio);
-      const el = document.getElementById(`thresh-${i}`);
-      if (el) el.textContent = `Seuil: ${sensorThresholds[i]}  Base: ${sensorBaselines[i]}`;
-      updateBarMarker(i);
-    }
-    if (chart) chart.update('none');
+    previewGlobalThresholds(pct);
   }
 
-  function applySensorThresholds(baselines, thresholds) {
-    sensorBaselines = baselines;
-    sensorThresholds = thresholds;
-    for (let i = 0; i < NUM_CAPTEURS; i++) {
-      const el = document.getElementById(`thresh-${i}`);
-      if (el) el.textContent = `Seuil: ${thresholds[i]}  Base: ${baselines[i]}`;
-      updateBarMarker(i);
+  function applySensorThresholds(baselines, thresholds, extra = {}) {
+    applyThresholdPayload({
+      baselines,
+      thresholds,
+      sensorOverrides: extra.sensorOverrides ?? sensorOverrides,
+      effectiveRatios: extra.effectiveRatios ?? effectiveRatios,
+    });
+  }
+
+  function syncSensorOverridesFromServer(data) {
+    if (!data) return;
+    let changed = false;
+
+    if (data.sensorOverrides) {
+      sensorOverrides = { ...data.sensorOverrides };
+      changed = true;
     }
-    if (chart) chart.update('none');
+    if (data.effectiveRatios) {
+      effectiveRatios = data.effectiveRatios.slice();
+      changed = true;
+    }
+
+    if (!changed) return;
+
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      if (sensorEditing[i]) continue;
+      const pct = getEffectivePercent(i);
+      lastSavedSensorPercent[i] = pct;
+      updateSensorThresholdInputs(i, pct);
+      updateSensorThreshLine(i);
+    }
+    updateResetAllButtonVisibility();
   }
 
   function syncThresholdRatioFromServer(ratio) {
@@ -330,7 +619,16 @@
     const pct = Math.round(ratio * 100);
     if (pct === thresholdPercent && pct === lastSavedPercent) return;
     lastSavedPercent = pct;
+    thresholdPercent = pct;
     updateThresholdControls(pct);
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      if (!hasOverride(i) && !sensorEditing[i]) {
+        effectiveRatios[i] = ratio;
+        lastSavedSensorPercent[i] = pct;
+        updateSensorThresholdInputs(i, pct);
+      }
+      updateSensorThresholdMode(i);
+    }
   }
 
   function setThresholdStatus(message, ok = false) {
@@ -385,8 +683,10 @@
       lastSavedPercent = saved;
       thresholdPercent = saved;
       updateThresholdControls(saved);
-      if (data.thresholds && sensorBaselines.length) {
-        applySensorThresholds(sensorBaselines, data.thresholds);
+      if (data.thresholds) {
+        applySensorThresholds(sensorBaselines, data.thresholds, data);
+      } else {
+        previewGlobalThresholds(saved);
       }
       markThresholdSaved();
     } catch {
@@ -464,6 +764,7 @@
     if (data.thresholds) sensorThresholds = data.thresholds;
     if (data.baselines) sensorBaselines = data.baselines;
     syncThresholdRatioFromServer(data.ratio);
+    syncSensorOverridesFromServer(data);
 
     for (let i = 0; i < NUM_CAPTEURS; i++) {
       updateSensor(i, data.values[i], data.states[i]);
@@ -471,10 +772,8 @@
       if (data.history && data.history[i]) {
         historyData[i] = data.history[i];
       }
-      if (data.thresholds && data.baselines) {
-        const el = document.getElementById(`thresh-${i}`);
-        if (el) el.textContent = `Seuil: ${data.thresholds[i]}  Base: ${data.baselines[i]}`;
-        updateBarMarker(i);
+      if (data.thresholds && data.baselines && !sensorEditing[i]) {
+        updateSensorThreshLine(i);
       }
     }
     updateChart();
@@ -512,13 +811,13 @@
           .join('');
         break;
       case 'SENSOR_CALIBRATION_DONE':
-        applySensorThresholds(msg.baselines, msg.thresholds);
+        applySensorThresholds(msg.baselines, msg.thresholds, msg);
         syncThresholdRatioFromServer(msg.ratio);
         hideCalibOverlay();
         addLogEntry(-1, false, 'Calibration OK — seuils calculés');
         break;
       case 'SENSOR_THRESHOLD_CHANGED':
-        applySensorThresholds(sensorBaselines, msg.thresholds);
+        applySensorThresholds(sensorBaselines, msg.thresholds, msg);
         syncThresholdRatioFromServer(msg.ratio);
         break;
       case 'SENSOR_SERIAL_STATUS':
@@ -549,6 +848,8 @@
     }
   });
 
+  btnResetAllOverrides?.addEventListener('click', () => resetAllOverrides());
+
   if (thresholdInput) {
     initThresholdControls();
   }
@@ -569,6 +870,8 @@
         lastSavedPercent = pct;
         updateThresholdControls(pct);
       }
+      if (data.sensorOverrides) sensorOverrides = { ...data.sensorOverrides };
+      if (data.effectiveRatios) effectiveRatios = data.effectiveRatios.slice();
       if (data.values) {
         handleSensorUpdate({
           values: data.values,
@@ -581,7 +884,12 @@
           calibrating: data.calibrating,
           port: data.port,
           ratio: data.ratio,
+          sensorOverrides: data.sensorOverrides,
+          effectiveRatios: data.effectiveRatios,
         });
+      } else {
+        syncSensorOverridesFromServer(data);
+        updateResetAllButtonVisibility();
       }
       serialConnected = data.connected;
       btnRecalib.hidden = !data.connected;

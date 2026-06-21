@@ -16,7 +16,7 @@ window.Minigame = (function () {
 
   const BALL_DROP_MS = 650;
   const SLOT_ROLL_MS = 1400;
-  const SLOT_AMOUNTS = [5, 10, 15, 20];
+  const SLOT_PERCENTS = [5, 10, 15, 20, 25];
   const COLUMN_COUNT = 7;
 
   let currentKind = null;
@@ -97,7 +97,7 @@ window.Minigame = (function () {
       const cell = document.createElement('div');
       cell.className = 'minigame-board__drop-cell';
       cell.dataset.col = String(c);
-      cell.textContent = String(c);
+      cell.textContent = String(c + 1);
       dropRowEl.appendChild(cell);
     }
   }
@@ -120,7 +120,7 @@ window.Minigame = (function () {
 
     const label = document.createElement('span');
     label.className = 'minigame-col__col-label';
-    label.textContent = `Col ${cell.col}`;
+    label.textContent = `Col ${cell.col + 1}`;
     slot.appendChild(label);
 
     if (!isPlayer) {
@@ -203,19 +203,22 @@ window.Minigame = (function () {
     ball.remove();
   }
 
-  async function animateSlotRoll(finalAmount) {
+  async function animateSlotRoll(finalAmount, rolledPercent) {
     slotWrapEl.classList.add('is-visible');
     slotEl.classList.add('is-rolling');
 
     const start = Date.now();
     while (Date.now() - start < SLOT_ROLL_MS) {
-      const fake = SLOT_AMOUNTS[Math.floor(Math.random() * SLOT_AMOUNTS.length)];
-      slotEl.textContent = String(fake);
+      const fake = SLOT_PERCENTS[Math.floor(Math.random() * SLOT_PERCENTS.length)];
+      slotEl.textContent = `${fake}%`;
       await sleep(55 + Math.floor(((Date.now() - start) / SLOT_ROLL_MS) * 70));
     }
 
     slotEl.classList.remove('is-rolling');
     slotEl.textContent = String(finalAmount);
+    if (slotLabelEl && rolledPercent) {
+      slotLabelEl.textContent = `${rolledPercent}% → ${finalAmount} pièces`;
+    }
     slotEl.classList.add('is-final');
     if (Sounds.scorePop) Sounds.scorePop();
 
@@ -306,7 +309,7 @@ window.Minigame = (function () {
         ? (msg.appliedToAttacker || 0)
         : Math.abs(msg.appliedToVictim || 0));
 
-    await animateSlotRoll(resolvedAmount);
+    await animateSlotRoll(resolvedAmount, msg.rolledPercent);
 
     const origin = getColumnCenter(msg.targetCol);
 
@@ -317,7 +320,7 @@ window.Minigame = (function () {
       });
       Players.updateScore(msg.targetPlayer, msg.scores[msg.targetPlayer], msg.appliedToVictim);
       Fx.flash('danger');
-      UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), `−${resolvedAmount} sur J${msg.targetPlayer} !`);
+      UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), `−${resolvedAmount} (${msg.rolledPercent}%) sur J${msg.targetPlayer} !`);
     } else if (msg.kind === 'thief') {
       if (resolvedAmount > 0) {
         await Fx.flyScoreToPlayer(msg.targetPlayer, -resolvedAmount, {
@@ -328,14 +331,11 @@ window.Minigame = (function () {
         await Fx.flyCoinsBetween(msg.targetPlayer, msg.activePlayer, resolvedAmount);
         Players.updateScore(msg.activePlayer, msg.scores[msg.activePlayer], resolvedAmount);
         Fx.flash('purple');
-        const capped = msg.rolledAmount > resolvedAmount;
         UI.setHud(
           msg.round,
           null,
           playerLabelText(msg.activePlayer),
-          capped
-            ? `Vol ${resolvedAmount} (J${msg.targetPlayer} n'avait que ${resolvedAmount})`
-            : `Vol ${resolvedAmount} depuis J${msg.targetPlayer} !`
+          `Vol ${resolvedAmount} (${msg.rolledPercent}%) depuis J${msg.targetPlayer} !`
         );
       } else {
         UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), `J${msg.targetPlayer} n'a rien à voler`);

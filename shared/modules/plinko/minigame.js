@@ -5,9 +5,12 @@
 
 const { createRng } = require('./rng');
 
-const MINIGAME_AMOUNTS = [5, 10, 15, 20];
-const MIN_AMOUNT = MINIGAME_AMOUNTS[0];
-const MAX_AMOUNT = MINIGAME_AMOUNTS[MINIGAME_AMOUNTS.length - 1];
+const MINIGAME_PERCENTS = [5, 10, 15, 20, 25];
+const MIN_PERCENT = MINIGAME_PERCENTS[0];
+const MAX_PERCENT = MINIGAME_PERCENTS[MINIGAME_PERCENTS.length - 1];
+
+/** @deprecated Utiliser MINIGAME_PERCENTS */
+const MINIGAME_AMOUNTS = MINIGAME_PERCENTS;
 
 function shuffleInPlace(arr, rng) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -48,11 +51,30 @@ function generateMinigameLayout(seed, activePlayer, allPlayers, columnCount = 7)
 
 /**
  * @param {() => number} rng
- * @returns {number} 5, 10, 15 ou 20
+ * @returns {number} 5, 10, 15, 20 ou 25 (pourcentage entier)
  */
+function rollMinigamePercent(rng) {
+  const idx = Math.floor(rng() * MINIGAME_PERCENTS.length);
+  return MINIGAME_PERCENTS[idx];
+}
+
+/**
+ * Convertit un pourcentage en pièces entières (plancher 1 si la victime a des pièces).
+ * @param {number} victimBalance
+ * @param {number} percent
+ * @returns {number}
+ */
+function resolveMinigameCoins(victimBalance, percent) {
+  const balance = Math.max(0, Number(victimBalance));
+  const pct = Number(percent);
+  if (!balance || !pct) return 0;
+  const raw = Math.round(balance * pct / 100);
+  return Math.max(1, Math.min(raw, balance));
+}
+
+/** @deprecated Utiliser rollMinigamePercent + resolveMinigameCoins */
 function rollMinigameAmount(rng) {
-  const idx = Math.floor(rng() * MINIGAME_AMOUNTS.length);
-  return MINIGAME_AMOUNTS[idx];
+  return rollMinigamePercent(rng);
 }
 
 /**
@@ -71,10 +93,13 @@ function resolveMinigameColumn(columns, col) {
 }
 
 module.exports = {
+  MINIGAME_PERCENTS,
   MINIGAME_AMOUNTS,
-  MIN_AMOUNT,
-  MAX_AMOUNT,
+  MIN_PERCENT,
+  MAX_PERCENT,
   generateMinigameLayout,
+  rollMinigamePercent,
   rollMinigameAmount,
+  resolveMinigameCoins,
   resolveMinigameColumn,
 };

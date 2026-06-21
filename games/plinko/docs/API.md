@@ -66,7 +66,8 @@
 | `onFireAtLand` | `true` si la balle atterrit encore en feu (≥3 même sens sans changement) |
 | `multiplier` | `2` si feu actif à l'atterrissage et case non neutre/spéciale, sinon `1` |
 | `triggersMinigame` | `true` si case `knife` ou `thief` — déclenche `MINIGAME_START` |
-| `minigameKind` | `"knife"` ou `"thief"` si mini-jeu |
+| `minigameSkipped` | `true` si case spéciale mais aucun adversaire n'a de pièces — pas de mini-jeu |
+| `minigameKind` | `"knife"` ou `"thief"` si mini-jeu (ou case d'origine si annulé) |
 
 ### Erreurs trigger
 
@@ -95,7 +96,7 @@ Format : `{ "type": "SCREAMING_SNAKE_CASE", ... }`
 | `MINIGAME_RESULT` | Trigger valide en phase mini-jeu | `kind`, `targetCol`, `targetType`, `targetPlayer`, `rolledAmount`, `resolvedAmount`, `appliedToVictim`, `appliedToAttacker`, `scores`, `advanceKind` |
 | `TURN_CHANGE` | ~5,8 s après chute ou ~9 s après mini-jeu | `currentPlayer`, `playersPlayedThisRound`, `scores` |
 | `ROUND_END` | idem (dernier joueur du tour) | `round`, `roundScores`, `scores`, `stats`, `totalRounds` |
-| `GAME_OVER` | idem (dernier coup) | `ranking`, `stats`, `scores`, `podium` |
+| `GAME_OVER` | idem (dernier coup) | `ranking`, `isTie`, `tiedPlayers`, `winners`, `stats`, `scores`, `podium` |
 | `DROP_ERROR` | Trigger invalide | `error`, `col` |
 | `RESET` | Reset manuel | `state` |
 
@@ -175,7 +176,8 @@ En phase mini-jeu, `minigame` contient `{ kind, activePlayer, columns, seed }`.
 (`controller.requiresPlayerRoster`). Vide `[]` si lancé sans roster. `cutoutUrl` (tête
 détourée PNG transparent) vaut `null` si absente. L'interface choisit `idle` sur les
 onglets, `win`/`lose` lors des variations de score et des vols, `win` pour le 1er du podium
-et `lose` pour le dernier ; le vainqueur déclenche une pluie de têtes (`cutoutUrl`).
+et `lose` pour le dernier ; le vainqueur déclenche une pluie de têtes (photo `win`).
+En cas d'égalité (`isTie: true`), pas de vainqueur ni de pluie de têtes.
 Voir [`README.md`](README.md).
 
 ### `advanceKind` (dans `BALL_DROP` ou `MINIGAME_RESULT`)
@@ -193,7 +195,8 @@ Absent dans `BALL_DROP` si `triggersMinigame: true` (calculé après le mini-jeu
 | `targetCol` | Colonne visée (0–6) |
 | `targetType` | `"hole"` ou `"player"` |
 | `targetPlayer` | Numéro joueur victime, ou `null` si trou |
-| `rolledAmount` | Montant tiré (5, 10, 15 ou 20), 0 si trou |
-| `resolvedAmount` | Montant réellement appliqué (vol ou dégâts), ≤ tirage si victime à sec |
+| `rolledPercent` | Pourcentage tiré (5, 10, 15, 20 ou 25), 0 si trou |
+| `rolledAmount` | Montant en pièces calculé à partir du % et du solde victime, 0 si trou |
+| `resolvedAmount` | Montant réellement appliqué (vol ou dégâts), ≤ solde victime |
 | `appliedToVictim` | Delta réel sur la victime (≤ 0) |
 | `appliedToAttacker` | Pièces gagnées par le lanceur (voleur : égal à `resolvedAmount`) |
