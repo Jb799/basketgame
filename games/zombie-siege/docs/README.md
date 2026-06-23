@@ -61,6 +61,8 @@ Le client repose sur un positionnement **100 % pixel** mesuré depuis le DOM ré
 | `public/js/shots.js` | Séquenceur de tir `THROW → FALL → IMPACT` ; bufferise `SHOT_RESULT` jusqu'à l'impact ; FX en pixels |
 | `public/js/app.js` | Routing WebSocket minimal vers `Shots` / `Entities` / `UI` |
 
+**Sons** : API partagée `window.Sounds` (plus de `SiegeSounds` local). Spawn `spawn()`, tir `throwProjectile()`, kill `meleeHit()` + `scorePop()`, vague `levelComplete()`, game over `gameOver()`. Catalogue : [`docs/SOUNDS.md`](../../../docs/SOUNDS.md).
+
 Principe clé : à réception du `SHOT_RESULT` touché, le zombie visé est **gelé** instantanément ; la bombe vient se poser sur ce point figé, où explosion, tache verte et score apparaissent, puis le zombie chute. Tout est donc parfaitement aligné.
 
 ## Constantes serveur

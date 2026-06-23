@@ -1,0 +1,92 @@
+{
+  "masterGain": 0.9,
+  "basePath": "/shared/sounds/",
+  "samples": {
+    "piglevelwin": {
+      "file": "piglevelwin.mp3",
+      "gain": 1.0,
+      "category": "victory",
+      "maxPolyphony": 1,
+      "debounceMs": 0
+    },
+    "coin": {
+      "file": "coin.mp3",
+      "gain": 0.85,
+      "category": "reward",
+      "maxPolyphony": 3,
+      "debounceMs": 40
+    },
+    "bomb": {
+      "file": "bomb.mp3",
+      "gain": 0.95,
+      "category": "impact",
+      "maxPolyphony": 2,
+      "debounceMs": 120
+    },
+    "meleeHit": {
+      "file": "hit-swing-sword.mp3",
+      "gain": 0.9,
+      "category": "impact",
+      "maxPolyphony": 2,
+      "debounceMs": 80
+    },
+    "gameover": {
+      "file": "gameover.mp3",
+      "gain": 1.0,
+      "category": "defeat",
+      "maxPolyphony": 1,
+      "debounceMs": 0
+    },
+    "achievement": {
+      "file": "achievement.mp3",
+      "gain": 0.88,
+      "category": "reward",
+      "maxPolyphony": 2,
+      "debounceMs": 60
+    },
+    "swoosh": {
+      "file": "mixkit-game-ball-tap-2073.wav",
+      "gain": 0.75,
+      "category": "motion",
+      "maxPolyphony": 3,
+      "debounceMs": 50,
+      "playbackRate": 1.35,
+      "_note": "Remplacer par swoosh.mp3 quand disponible"
+    },
+    "click": {
+      "file": "computer-mouse-click.mp3",
+      "gain": 0.7,
+      "category": "ui",
+      "maxPolyphony": 2,
+      "debounceMs": 80
+    },
+    "levelComplete": {
+      "file": "mixkit-game-level-completed-2059.wav",
+      "gain": 0.92,
+      "category": "victory",
+      "maxPolyphony": 1,
+      "debounceMs": 0
+    },
+    "ballTap": {
+      "file": "mixkit-game-ball-tap-2073.wav",
+      "gain": 0.8,
+      "category": "impact",
+      "maxPolyphony": 4,
+      "debounceMs": 0
+    },
+    "smallHit": {
+      "file": "mixkit-small-hit-in-a-game-2072.wav",
+      "gain": 0.85,
+      "category": "impact",
+      "maxPolyphony": 4,
+      "debounceMs": 80
+    },
+    "boostRecharge": {
+      "file": "mixkit-player-boost-recharging-2040.wav",
+      "gain": 0.9,
+      "category": "reward",
+      "maxPolyphony": 2,
+      "debounceMs": 100
+    }
+  }
+}

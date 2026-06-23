@@ -146,6 +146,17 @@ Tout est documenté dans [docs/GAMES.md](docs/GAMES.md). En résumé :
 | [docs/HARDWARE.md](docs/HARDWARE.md) | Le plateau physique 7 colonnes |
 | [docs/ESP32.md](docs/ESP32.md) | Protocole ESP32 + code Arduino |
 | [docs/GAMES.md](docs/GAMES.md) | Guide de création d'un jeu |
+| [docs/SOUNDS.md](docs/SOUNDS.md) | Catalogue audio, API `Sounds`, normalisation |
+
+### Sons des jeux
+
+Les effets sonores sont servis sous `/shared/sounds/`. Pour normaliser le volume après ajout de fichiers :
+
+```bash
+npm run normalize-sounds
+```
+
+Prérequis : **ffmpeg** dans le PATH. Voir [docs/SOUNDS.md](docs/SOUNDS.md).
 
 ---
 

@@ -5,7 +5,8 @@
   "main": "hub/index.js",
   "scripts": {
     "start": "node hub/index.js",
-    "dev": "node --watch hub/index.js"
+    "dev": "node --watch hub/index.js",
+    "normalize-sounds": "node scripts/normalize-sounds.mjs"
   },
   "dependencies": {
     "express": "^4.18.2",

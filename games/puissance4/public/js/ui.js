@@ -110,6 +110,8 @@ window.UI = (function () {
 
     overlay.removeAttribute('hidden');
 
+    try { Sounds.victory(); } catch (e) {}
+
     const confettiCanvas = document.getElementById('confetti-canvas');
     if (confettiCanvas) {
       Confetti.create(confettiCanvas);

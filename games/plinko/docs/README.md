@@ -79,7 +79,9 @@ Les largeurs des cases et leur répartition sont **aléatoires** à chaque tour.
 
 **Animation balle** : chute avec élan plafonné (vitesse max ~×1,65) — accélération progressive en série du même côté, sans excès.
 
-**Mode feu 🔥** : 3× même côté → flammes sur la balle. Atterrissage en feu → **×2 géant** plein écran + montant (`+100`, `-28`…) qui vole vers l’onglet joueur avec sons.
+**Mode feu 🔥** : 3× même côté → flammes sur la balle. Atterrissage en feu → **×2 géant** plein écran + montant (`+100`, `-28`…) qui vole vers l’onglet joueur avec sons (`Sounds.multiplierX2`, `scoreImpactGain` / `scoreImpactLoss`, `coinWin`).
+
+**Sons** : API partagée `window.Sounds` (fichiers dans `/shared/sounds/`). Lancer `dropStart`, rebonds `tokenLand`, bombe `bombHit`, podium `victory`, couteau `meleeHit`. Catalogue complet : [`docs/SOUNDS.md`](../../../docs/SOUNDS.md).
 
 **Transition plateau** : au nouveau tour (`BOARD_READY`), les cases et clous actuels défilent vers la droite ; le nouveau plateau entre en glissant depuis la gauche (effet bandeau). La balle disparaît dès l'atterrissage ou au changement de tour.
 

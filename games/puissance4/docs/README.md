@@ -104,7 +104,8 @@ Servie sur la télé via le proxy `/play` du hub.
 - **Grille** : **7 colonnes égales sur toute la largeur de l'écran** (`repeat(7, 1fr)`), 6 rangées sur la hauteur utile. Les jetons restent circulaires (`100cqmin` centré dans chaque case) ; l'espace entre les cases (`--board-gap`) s'adapte à la largeur.
 - **HUD** : cercle orange (gauche) et cercle bleu cyan (droite) avec le nombre de victoires ; le joueur actif est mis en évidence (badge « À TOI », agrandi, lueur colorée) tandis que l'autre est fortement atténué (grisé, réduit).
 - **Bandeau de tour** : pilule « À TOI » + pseudo du joueur actif, centrée en bas de la grille, avec bordure et lueur orange ou cyan selon le joueur. La grille elle-même prend une bordure lumineuse de la couleur du joueur actif.
-- **Animation de chute** : jeton flottant animé en CSS (`tokenColumnDrop`), durée 380–680 ms selon la hauteur. Son `Sounds.tokenLand()` à la fin.
+- **Animation de chute** : jeton flottant animé en CSS (`tokenColumnDrop`), durée 380–680 ms selon la hauteur. Son `Sounds.tokenLand()` à la fin (rebond).
+- **Sons** : API partagée `window.Sounds` — victoire de manche `roundWin()`, série / podium `victory()`, match nul `draw()`. Catalogue : [`docs/SOUNDS.md`](../../../docs/SOUNDS.md).
 - **Trainée lumineuse** : synchronisée frame par frame avec la balle — les rangées déjà traversées restent légèrement éclairées, la tête de lumière suit la balle sans la dépasser (centre de la balle ≥ milieu de la rangée). Flash court à l'atterrissage (`columnLandPulse`).
 - **Effets de victoire de manche** : flash plein écran + confettis (pas de texte ni bouton sur la grille).
 - **Fin de série (5 victoires)** : après 5 secondes (plateau visible avec les 4 alignés), bannière semi-transparente en haut de l'écran (« Champion de la série ») + confettis ; le plateau reste visible en dessous. Reset via le contrôleur.
@@ -112,12 +113,13 @@ Servie sur la télé via le proxy `/play` du hub.
 Ordre de chargement des scripts (`public/index.html`) :
 
 ```
-/shared/effects.js → js/board.js → js/players.js → js/ui.js → js/app.js
+/shared/sound-engine.js → /shared/effects.js → js/board.js → js/players.js → js/ui.js → js/app.js
 ```
 
 | Module | Global | Rôle |
 |--------|--------|------|
-| `effects.js` (partagé) | `window.Confetti`, `window.Sounds` | Confettis, sons |
+| `sound-engine.js` (partagé) | `window.SoundEngine` | Moteur audio samples |
+| `effects.js` (partagé) | `window.Confetti`, `window.Sounds` | Confettis, sons (voir `docs/SOUNDS.md`) |
 | `board.js` | `window.Board` | Rendu de la grille, chute physique, flash colonne, shake erreur |
 | `players.js` | `window.Players` | HUD badges, scores, tour actif |
 | `ui.js` | `window.UI` | Flash + confettis victoire, écran série (5 manches) |

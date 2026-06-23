@@ -170,134 +170,124 @@ window.Confetti = (function () {
 
 
 /* ═══════════════════════════════════════════════════════════════
-   3. SONS — Web Audio API (synthèse, pas de fichiers)
+   3. SONS — Samples via SoundEngine (voir docs/SOUNDS.md)
    ═══════════════════════════════════════════════════════════════ */
 
 window.Sounds = (function () {
-  let audioCtx = null;
+  const SE = () => window.SoundEngine;
 
-  function getCtx() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    // Reprendre si suspendu (politique autoplay navigateur)
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    return audioCtx;
+  function play(id, opts) {
+    const engine = SE();
+    if (!engine) return;
+    engine.playSync(id, opts);
   }
 
-  function playTone({ frequency = 440, type = 'sine', duration = 0.15, volume = 0.3, detune = 0, fadeOut = true } = {}) {
-    try {
-      const ctx = getCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.type = type;
-      osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-      osc.detune.setValueAtTime(detune, ctx.currentTime);
-      gain.gain.setValueAtTime(volume, ctx.currentTime);
-
-      if (fadeOut) {
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      }
-
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + duration);
-    } catch (e) {
-      // Silently fail si audio non disponible
-    }
-  }
-
-  function tokenDrop(player) {
-    // Son de chute : fréquence grave qui monte légèrement
-    const freq = player === 1 ? 180 : 220;
-    playTone({ frequency: freq, type: 'sine', duration: 0.2, volume: 0.25 });
-    setTimeout(() => playTone({ frequency: freq * 1.5, type: 'triangle', duration: 0.1, volume: 0.1 }), 180);
+  function tokenDrop() {
+    play('ballTap');
   }
 
   function tokenLand() {
-    // Clonk de jeton qui tombe
-    playTone({ frequency: 120, type: 'square', duration: 0.08, volume: 0.2 });
+    play('smallHit');
   }
 
   function changeTurn() {
-    // Petit bip de changement de tour
-    playTone({ frequency: 660, type: 'sine', duration: 0.1, volume: 0.15 });
+    play('click');
   }
 
-  function victory(player) {
-    // Fanfare de victoire
-    const notes = player === 1
-      ? [523, 659, 784, 1047]
-      : [587, 740, 880, 1175];
-    notes.forEach((freq, i) => {
-      setTimeout(() => playTone({ frequency: freq, type: 'sine', duration: 0.3, volume: 0.25 }), i * 120);
-    });
-    // Accord final
-    setTimeout(() => {
-      notes.forEach(freq => playTone({ frequency: freq, type: 'sine', duration: 0.5, volume: 0.15 }));
-    }, 520);
+  /** Victoire de manche (court) — utiliser roundWin pour la série / podium. */
+  function roundWin() {
+    play('achievement');
+  }
+
+  /** Victoire finale, podium, gagnant de série (~4 s). */
+  function victory() {
+    play('piglevelwin');
   }
 
   function draw() {
-    // Son de match nul — descendant
-    [440, 392, 349, 294].forEach((freq, i) => {
-      setTimeout(() => playTone({ frequency: freq, type: 'triangle', duration: 0.2, volume: 0.2 }), i * 100);
-    });
+    play('achievement', { volume: 0.4 });
   }
 
   function error() {
-    playTone({ frequency: 200, type: 'sawtooth', duration: 0.2, volume: 0.3 });
+    play('smallHit', { playbackRate: 0.75, volume: 0.9 });
   }
 
   function reset() {
-    playTone({ frequency: 440, type: 'sine', duration: 0.15, volume: 0.2 });
-    setTimeout(() => playTone({ frequency: 880, type: 'sine', duration: 0.15, volume: 0.15 }), 150);
+    play('click');
   }
 
   function dropStart() {
-    playTone({ frequency: 300, type: 'sine', duration: 0.18, volume: 0.22 });
+    play('swoosh');
   }
 
   function coinWin(amount) {
-    const steps = Math.min(5, Math.max(1, Math.ceil(amount / 10)));
+    const steps = Math.min(5, Math.max(1, Math.ceil((amount || 1) / 10)));
     for (let i = 0; i < steps; i++) {
-      setTimeout(() => playTone({ frequency: 520 + i * 80, type: 'sine', duration: 0.12, volume: 0.2 }), i * 70);
+      setTimeout(() => play('coin', { volume: 0.85 + i * 0.03 }), i * 70);
     }
   }
 
   function bombHit(size) {
-    const base = size === 'large' ? 90 : size === 'medium' ? 110 : 130;
-    playTone({ frequency: base, type: 'sawtooth', duration: 0.35, volume: 0.35 });
-    setTimeout(() => playTone({ frequency: base * 0.6, type: 'square', duration: 0.25, volume: 0.2 }), 120);
+    const vol = size === 'large' ? 1.1 : size === 'medium' ? 1.0 : 0.9;
+    play('bomb', { volume: vol });
   }
 
   function multiplierX2() {
-    playTone({ frequency: 330, type: 'sine', duration: 0.12, volume: 0.32 });
-    setTimeout(() => playTone({ frequency: 495, type: 'sine', duration: 0.12, volume: 0.3 }), 90);
-    setTimeout(() => playTone({ frequency: 660, type: 'square', duration: 0.18, volume: 0.28 }), 180);
-    setTimeout(() => playTone({ frequency: 880, type: 'sine', duration: 0.22, volume: 0.26 }), 280);
+    play('boostRecharge');
   }
 
   function scorePop() {
-    playTone({ frequency: 520, type: 'sine', duration: 0.1, volume: 0.28 });
-    setTimeout(() => playTone({ frequency: 780, type: 'sine', duration: 0.08, volume: 0.22 }), 60);
+    play('achievement');
   }
 
   function scoreImpactGain() {
-    playTone({ frequency: 880, type: 'sine', duration: 0.14, volume: 0.3 });
-    setTimeout(() => playTone({ frequency: 1175, type: 'sine', duration: 0.12, volume: 0.24 }), 80);
+    play('boostRecharge');
   }
 
   function scoreImpactLoss() {
-    playTone({ frequency: 180, type: 'sawtooth', duration: 0.2, volume: 0.32 });
-    setTimeout(() => playTone({ frequency: 120, type: 'square', duration: 0.18, volume: 0.22 }), 100);
+    play('smallHit', { playbackRate: 0.75, volume: 0.95 });
+  }
+
+  function meleeHit() {
+    play('meleeHit');
+  }
+
+  function gameOver() {
+    play('gameover');
+  }
+
+  function levelComplete() {
+    play('levelComplete');
+  }
+
+  function throwProjectile() {
+    play('swoosh');
+  }
+
+  function spawn() {
+    play('swoosh', { playbackRate: 0.7 });
+  }
+
+  function breach() {
+    play('bomb', { volume: 1.05 });
+  }
+
+  function miss() {
+    error();
+  }
+
+  function fallMiss() {
+    play('ballTap', { volume: 0.7 });
+  }
+
+  function thiefSwoosh() {
+    play('swoosh', { volume: 0.85 });
   }
 
   return {
-    tokenDrop, tokenLand, changeTurn, victory, draw, error, reset, dropStart,
+    tokenDrop, tokenLand, changeTurn, roundWin, victory, draw, error, reset, dropStart,
     coinWin, bombHit, multiplierX2, scorePop, scoreImpactGain, scoreImpactLoss,
+    meleeHit, gameOver, levelComplete, throwProjectile, spawn, breach, miss, fallMiss,
+    thiefSwoosh,
   };
 })();

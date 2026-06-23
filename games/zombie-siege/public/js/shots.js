@@ -54,7 +54,7 @@ window.Shots = (function () {
     shots.set(shotId, ctrl);
 
     if (defender) defender.classList.add('is-throwing');
-    if (window.SiegeSounds) SiegeSounds.throwProjectile();
+    if (window.Sounds) Sounds.throwProjectile();
 
     // Verdict déjà connu (arrivé avant le SHOOT_FIRE) → on conclut tout de suite.
     if (ctrl.result && ctrl.result.hit) {
@@ -159,9 +159,9 @@ window.Shots = (function () {
       showSplat(ctrl.layer, point.x, point.y);
       if (result.points > 0) showScorePop(ctrl.layer, point.x, point.y, result.points);
 
-      if (window.SiegeSounds) {
-        SiegeSounds.impact();
-        SiegeSounds.scorePop();
+      if (window.Sounds) {
+        Sounds.meleeHit();
+        Sounds.scorePop();
       }
       if (window.SiegeFx) SiegeFx.flashHit();
       if (window.Sounds?.bombHit) Sounds.bombHit('small');
@@ -171,7 +171,7 @@ window.Shots = (function () {
       setCenter(ctrl.bomb, ctrl.ground.x, ctrl.ground.y);
       ctrl.bomb.remove();
       showPoof(ctrl.layer, ctrl.ground.x, ctrl.ground.y);
-      if (window.SiegeSounds) SiegeSounds.fallMiss();
+      if (window.Sounds) Sounds.fallMiss();
     }
   }
 
@@ -226,7 +226,7 @@ window.Shots = (function () {
     Building.breakWindow(col);
     Building.playColHit(col);
     if (window.SiegeFx) SiegeFx.flashBreach(col);
-    if (window.SiegeSounds) SiegeSounds.breach();
+    if (window.Sounds) Sounds.breach();
   }
 
   return {

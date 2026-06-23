@@ -70,7 +70,7 @@ window.UI = (function () {
 
     els.waveOverlay.hidden = false;
     els.waveOverlay.classList.add('is-visible');
-    if (window.SiegeSounds) SiegeSounds.waveStart();
+    if (window.Sounds) Sounds.levelComplete();
 
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -93,7 +93,7 @@ window.UI = (function () {
 
     if (els.gameOverOverlay) els.gameOverOverlay.hidden = false;
 
-    if (window.SiegeSounds) SiegeSounds.gameOver();
+    if (window.Sounds) Sounds.gameOver();
 
     if (payload.isNewRecord) {
       if (window.Sounds?.victory) Sounds.victory(1);

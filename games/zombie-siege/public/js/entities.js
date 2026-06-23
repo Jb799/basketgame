@@ -90,7 +90,7 @@ window.Entities = (function () {
 
       if (!e) {
         spawn(z.id, z.col, z.row);
-        if (window.SiegeSounds) SiegeSounds.spawn();
+        if (window.Sounds) Sounds.spawn();
         continue;
       }
 

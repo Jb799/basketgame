@@ -179,7 +179,7 @@ window.App = (function () {
       try { Players.updateScores(scores); } catch (e2) {}
     }
 
-    try { Sounds.victory(winner); } catch (e) {}
+    try { Sounds.roundWin(); } catch (e) {}
 
     await delay(500);
 

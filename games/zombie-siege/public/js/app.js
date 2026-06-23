@@ -106,7 +106,7 @@ window.App = (function () {
         break;
 
       case 'SHOOT_ERROR':
-        if (window.SiegeSounds) SiegeSounds.miss();
+        if (window.Sounds) Sounds.miss();
         break;
 
       case 'BREACH':
@@ -122,7 +122,7 @@ window.App = (function () {
 
       case 'WAVE_COMPLETE':
         applyState(msg.state);
-        if (window.SiegeSounds) SiegeSounds.scorePop();
+        if (window.Sounds) Sounds.scorePop();
         break;
 
       case 'GAME_OVER':

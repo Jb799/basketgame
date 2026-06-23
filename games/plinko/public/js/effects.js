@@ -89,6 +89,7 @@ window.Fx = (function () {
     fxLayer.appendChild(el);
     setTimeout(() => el.remove(), 800);
     flash('steel');
+    if (Sounds.meleeHit) Sounds.meleeHit();
   }
 
   function thiefFlash(x, y) {
@@ -175,6 +176,8 @@ window.Fx = (function () {
   function flyCoinsBetween(fromPlayer, toPlayer, amount) {
     if (!amount || !fxLayer) return sleep(0);
 
+    if (Sounds.thiefSwoosh) Sounds.thiefSwoosh();
+
     const from = getScoreTarget(fromPlayer);
     const to = getScoreTarget(toPlayer);
     if (!from || !to) return sleep(0);
@@ -203,7 +206,9 @@ window.Fx = (function () {
       }));
     }
 
-    return Promise.all(promises);
+    return Promise.all(promises).then(() => {
+      if (Sounds.coinWin) Sounds.coinWin(amount);
+    });
   }
 
   return { coinBurst, bombExplosion, onLand, flash, flyScoreToPlayer, flyCoinsBetween, knifeFlash, thiefFlash };
