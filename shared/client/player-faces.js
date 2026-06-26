@@ -48,8 +48,8 @@ window.PlayerFaces = (function () {
 
   function initials(slot) {
     const entry = getEntry(slot);
-    const base = entry?.pseudo || String(slot);
-    return base.trim().slice(0, 2).toUpperCase();
+    if (entry?.pseudo) return entry.pseudo.trim().slice(0, 2).toUpperCase();
+    return `J${slot}`;
   }
 
   /**

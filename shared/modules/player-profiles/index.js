@@ -11,6 +11,7 @@
  *   <dir>/<id>/win.jpg        → photo de fierté (victoire)
  *   <dir>/<id>/lose.jpg       → photo de défaite
  *   <dir>/<id>/cutout.png     → tête détourée (fond transparent), optionnelle
+ *   <dir>/<id>/statistics.json → stats agrégées tous jeux (voir player-stats)
  *
  * Le scan du dossier fait foi (pas d'index séparé à maintenir).
  */
@@ -20,9 +21,11 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { PLAYER_PHOTO_VARIANTS } = require('../../constants');
+const { normalizeStats, recordResult } = require('../player-stats');
 
 const PHOTO_FILES = { idle: 'idle.jpg', win: 'win.jpg', lose: 'lose.jpg' };
 const CUTOUT_FILE = 'cutout.png';
+const STATS_FILE = 'statistics.json';
 
 class PlayerProfiles {
   /**
@@ -59,6 +62,61 @@ class PlayerProfiles {
     return path.join(this._profileDir(id), CUTOUT_FILE);
   }
 
+  _statsFile(id) {
+    return path.join(this._profileDir(id), STATS_FILE);
+  }
+
+  _readStats(id) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(this._statsFile(id), 'utf8'));
+      return normalizeStats(raw);
+    } catch {
+      return normalizeStats(null);
+    }
+  }
+
+  _writeStats(id, stats) {
+    fs.writeFileSync(this._statsFile(id), JSON.stringify(stats, null, 2), 'utf8');
+  }
+
+  /** Retourne les statistiques agrégées d'un profil. */
+  getStatistics(id) {
+    const profile = this._readProfile(id);
+    if (!profile) return null;
+    return this._readStats(id);
+  }
+
+  /**
+   * Enregistre le résultat d'une partie pour un profil.
+   * @param {string} id
+   * @param {{ gameId: string, result: 'win'|'loss'|'tie', meta?: object }} entry
+   */
+  recordGameResult(id, { gameId, result, meta }) {
+    const profile = this._readProfile(id);
+    if (!profile) return null;
+    const next = recordResult(this._readStats(id), { gameId, result, meta });
+    this._writeStats(id, next);
+    return next;
+  }
+
+  /**
+   * Enregistre plusieurs résultats (une partie, plusieurs joueurs).
+   * @param {Array<{ profileId: string, gameId: string, result: string, meta?: object }>} entries
+   */
+  recordGameResults(entries) {
+    const updated = [];
+    for (const entry of entries || []) {
+      if (!entry?.profileId || !entry?.gameId || !entry?.result) continue;
+      const stats = this.recordGameResult(entry.profileId, {
+        gameId: entry.gameId,
+        result: entry.result,
+        meta: entry.meta,
+      });
+      if (stats) updated.push({ profileId: entry.profileId, statistics: stats });
+    }
+    return updated;
+  }
+
   _photoStatus(id) {
     const photos = {};
     for (const v of PLAYER_PHOTO_VARIANTS) {
@@ -89,6 +147,7 @@ class PlayerProfiles {
       photos,
       hasAllPhotos: PLAYER_PHOTO_VARIANTS.every((v) => photos[v]),
       hasCutout: fs.existsSync(this._cutoutPath(profile.id)),
+      statistics: this._readStats(profile.id),
     };
   }
 
@@ -189,9 +248,11 @@ class PlayerProfiles {
   /**
    * Valide une liste ordonnée d'identifiants de profils pour une partie.
    * @param {string[]} profileIds - Index 0 = slot 1, etc.
+   * @param {{ requireAllPhotos?: boolean }} [opts]
    * @returns {{ valid: true, profiles: object[] } | { valid: false, error: string }}
    */
-  resolveRoster(profileIds) {
+  resolveRoster(profileIds, opts = {}) {
+    const requireAllPhotos = opts.requireAllPhotos !== false;
     if (!Array.isArray(profileIds) || profileIds.length === 0) {
       return { valid: false, error: 'ROSTER_EMPTY' };
     }
@@ -203,8 +264,33 @@ class PlayerProfiles {
       seen.add(id);
       const profile = this.get(id);
       if (!profile) return { valid: false, error: 'ROSTER_PROFILE_NOT_FOUND' };
-      if (!profile.hasAllPhotos) return { valid: false, error: 'ROSTER_PHOTOS_INCOMPLETE' };
+      if (requireAllPhotos && !profile.hasAllPhotos) {
+        return { valid: false, error: 'ROSTER_PHOTOS_INCOMPLETE' };
+      }
       profiles.push(profile);
+    }
+    return { valid: true, profiles };
+  }
+
+  /**
+   * Valide un roster avec emplacements vides et sans exiger les 3 photos.
+   * @param {string[]} profileIds - Index 0 = slot 1 ; chaînes vides ignorées.
+   */
+  resolveRosterOptional(profileIds) {
+    if (!Array.isArray(profileIds)) {
+      return { valid: false, error: 'ROSTER_INVALID' };
+    }
+    const seen = new Set();
+    const profiles = [];
+    for (let i = 0; i < profileIds.length; i++) {
+      const id = profileIds[i];
+      if (!id) continue;
+      if (typeof id !== 'string') return { valid: false, error: 'ROSTER_INVALID_ID' };
+      if (seen.has(id)) return { valid: false, error: 'ROSTER_DUPLICATE' };
+      seen.add(id);
+      const profile = this.get(id);
+      if (!profile) return { valid: false, error: 'ROSTER_PROFILE_NOT_FOUND' };
+      profiles.push({ profile, slot: i + 1 });
     }
     return { valid: true, profiles };
   }

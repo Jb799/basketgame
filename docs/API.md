@@ -77,13 +77,21 @@ curl -X POST http://localhost:3000/api/games/plinko/start \
   -d '{"playerCount": 4}'
 ```
 
-**Roster de joueurs** — si le jeu déclare `controller.requiresPlayerRoster: true`,
-le body doit aussi contenir `roster` : une liste **ordonnée** d'identifiants de
-profils (index 0 = slot 1). Sa longueur doit valoir le nombre de joueurs
-(`playerCount` si présent, sinon `players.min`). Le hub résout chaque profil et
-injecte un roster **enrichi** (slot, pseudo, URLs des photos) dans `GAME_START_PARAMS`.
+**Roster de joueurs** — selon la config du jeu :
+
+| Flag `controller` | Comportement |
+|-------------------|--------------|
+| `requiresPlayerRoster: true` | `roster` **obligatoire** : liste ordonnée d'ids (index 0 = slot 1), longueur = nombre de joueurs |
+| `optionalPlayerRoster: true` | `roster` **optionnel** : emplacements vides autorisés ; sans profils, avatars par défaut (initiales J1, J2…). Les profils **sans photos complètes** sont sélectionnables (repli initiales côté télé). |
+
+Le hub résout chaque profil choisi et injecte un roster **enrichi** (slot, pseudo, URLs des photos présentes ou `null`)
+dans `GAME_START_PARAMS`. Les emplacements sans profil sont omis du roster enrichi.
 
 ```bash
+# Puissance 4 sans profils
+curl -X POST http://localhost:3000/api/games/puissance4/start
+
+# Puissance 4 avec deux profils (optionnel, photos non requises)
 curl -X POST http://localhost:3000/api/games/puissance4/start \
   -H 'Content-Type: application/json' \
   -d '{"roster": ["<id-joueur-1>", "<id-joueur-2>"]}'
@@ -117,7 +125,7 @@ Réponse succès (roster enrichi) :
 
 > `cutoutUrl` vaut `null` si le profil n'a pas (encore) de tête détourée.
 
-Jeux sans `startOptions` ni `requiresPlayerRoster` : body vide ou absent, comportement inchangé.
+Jeux sans `startOptions` ni roster (`requiresPlayerRoster` / `optionalPlayerRoster`) : body vide ou absent, comportement inchangé.
 
 Erreurs :
 - Jeu introuvable → `HTTP 404` `{ "success": false, "error": "GAME_NOT_FOUND" }`
@@ -157,6 +165,7 @@ Les actions disponibles sont exposées dans `GET /api/games` et `HUB_STATE`, sou
 
 **Entrée manuelle** (simulateur intégré au contrôleur : bouton **Simuler la balle** → 7 colonnes) ou tests HTTP.
 En production, les détections ESP32 passent par le port série USB et le hub déclenche ce flux en interne.
+En **mode simulation** (`--simulate` sur `start.ps1` / `start.zsh`, ou `SENSOR_SIMULATE=1`), le trigger passe par la chaîne de détection virtuelle (valeurs ADC simulées → dashboard `/sensors` → relais jeu).
 Accepte le body JSON `{ "column": N }` ou la query string `?col=N` (N = 0 à 6).
 
 - Jeu actif → renvoie la réponse du jeu (voir contrat ci-dessous).
@@ -170,14 +179,20 @@ Tout ce qui commence par `/play` (HTTP et WebSocket) est proxifié vers le serve
 
 ### Profils joueurs (`/api/players`)
 
-Profils persistés dans `data/players/` (pseudo + 3 photos carrées : `idle`, `win`, `lose`).
+Profils persistés dans `data/players/<id>/` :
+- `profile.json` — pseudo, dates
+- `idle.jpg` / `win.jpg` / `lose.jpg` — photos (optionnelles pour le roster)
+- `cutout.png` — tête détourée (optionnelle)
+- `statistics.json` — stats agrégées tous jeux (mises à jour automatiquement en fin de partie)
+
 Servis par le hub afin d'être accessibles à la télé comme au contrôleur.
 
 | Méthode | Route | Rôle |
 |---------|-------|------|
-| `GET` | `/api/players` | Liste des profils (`photos` = booléens, `photoUrls` = URLs ou `null`, `hasCutout` = booléen, `cutoutUrl` = URL ou `null`) |
+| `GET` | `/api/players` | Liste des profils (`photoUrls`, `hasCutout`, `statistics`, …) |
 | `POST` | `/api/players` | Crée un profil `{ "pseudo": "..." }` |
-| `GET` | `/api/players/:id` | Détail d'un profil |
+| `POST` | `/api/players/record-game` | Enregistre les résultats d'une partie (localhost uniquement, appelé par les serveurs de jeu) |
+| `GET` | `/api/players/:id` | Détail d'un profil (inclut `statistics`) |
 | `PATCH` | `/api/players/:id` | Modifie le pseudo |
 | `DELETE` | `/api/players/:id` | Supprime le profil et ses photos |
 | `PUT` | `/api/players/:id/photos/:variant` | Envoie une photo (corps binaire JPEG, `variant` = `idle`\|`win`\|`lose`) |
@@ -197,17 +212,37 @@ curl -X PUT "http://localhost:3000/api/players/$ID/photos/idle" \
 > côté client lors de la capture de la photo `idle` (segmentation MediaPipe) et
 > sert aux animations « têtes qui tombent » dans les jeux.
 
-Erreurs : `PROFILE_NOT_FOUND` (404), `PSEUDO_REQUIRED` / `INVALID_VARIANT` / `EMPTY_PHOTO` (400), `PHOTO_NOT_FOUND` / `CUTOUT_NOT_FOUND` (404).
+**Enregistrement des stats** (fin de partie, serveurs de jeu → hub) :
+
+```bash
+curl -X POST http://localhost:3000/api/players/record-game \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "gameId": "plinko",
+    "results": [
+      { "profileId": "<id>", "result": "win", "meta": { "rank": 1, "score": 42 } },
+      { "profileId": "<id2>", "result": "loss", "meta": { "rank": 2, "score": 10 } }
+    ]
+  }'
+```
+
+`result` : `win` | `loss` | `tie`. Les jeux appellent ce endpoint via `shared/server/reportPlayerStats.js`
+(Plinko à `GAME_OVER`, Puissance 4 à la fin de série). Réponse `403 LOCALHOST_ONLY` si l'appel
+ne vient pas de la machine locale.
+
+Erreurs : `PROFILE_NOT_FOUND` (404), `PSEUDO_REQUIRED` / `INVALID_VARIANT` / `EMPTY_PHOTO` (400), `PHOTO_NOT_FOUND` / `CUTOUT_NOT_FOUND` (404), `INVALID_PAYLOAD` / `NO_VALID_RESULTS` (400 sur `record-game`).
 
 ### Capteurs ESP32 (série USB)
 
-Gérés par `hub/esp32SensorService.js`. Calibration et détection côté hub ; les détections déclenchent le même flux que `POST /api/trigger`.
+Gérés par `hub/esp32SensorService.js`. Calibration et détection côté hub ; les détections déclenchent le même flux que `POST /api/trigger`. La **détection d'impact structure** (vibrations multi-capteurs) est un canal séparé — voir messages `SENSOR_IMPACT` / `HUB_IMPACT`.
 
 | Méthode | Route | Rôle |
 |---------|-------|------|
-| `GET` | `/api/sensors/status` | État capteurs (valeurs, seuils, baselines, `ratio`, `sensorOverrides`, `effectiveRatios`, port série, calibration) |
-| `POST` | `/api/sensors/recalibrate` | Relance la calibration (5 s, sans balle) — `503` si port non connecté |
+| `GET` | `/api/sensors/status` | État capteurs (valeurs, seuils, baselines, `ratio`, `sensorOverrides`, `effectiveRatios`, `impactDetection`, `totalImpacts`, port série, calibration) |
+| `POST` | `/api/sensors/recalibrate` | Relance la calibration (5 s, sans balle) — `503` si port non connecté (sauf mode simulation) |
+| `POST` | `/api/sensors/simulate/impact` | **Mode simulation uniquement** — injecte un impact structure virtuel `{ "sensors": [0,1,2,3] }` |
 | `PATCH` / `POST` | `/api/sensors/threshold` | Modifie les seuils (persiste dans `data/sensors-config.json`, recalcule si calibré) |
+| `PATCH` / `POST` | `/api/sensors/impact-sensitivity` | Sensibilité impact structure (`percent` ou `sensitivity`, 10–90 — plus haut = moins sensible) |
 
 Corps acceptés par `/api/sensors/threshold` :
 
@@ -240,8 +275,11 @@ Utilisé par le contrôleur et la télé. À la connexion et à chaque changemen
 |--------|---------|-------------|
 | `HUB_STATE` | `status`, `activeGameId`, `port`, `games[]` | Connexion + démarrage/arrêt/crash d'un jeu |
 | `HUB_TRIGGER` | `column` (0–6) | Trigger reçu alors qu'**aucun jeu n'est actif** (prévisualisation TV) |
-| `SENSOR_UPDATE` | `values[]`, `states[]`, `counts[]`, `history[][]`, `thresholds[]`, `baselines[]`, `ratio`, `sensorOverrides`, `effectiveRatios`, `calibrating`, `port` | Lecture série ESP32 (~10 ms) |
+| `HUB_IMPACT` | `sensors[]`, `magnitude`, `peakDrop`, `sensorCount`, `drops[]`, `timestamp` | Impact structure reçu alors qu'**aucun jeu n'est actif** — effet cosmétique sur `/tv` via `StructureImpact` |
+| `SENSOR_UPDATE` | `values[]`, `states[]`, `counts[]`, `history[][]`, `thresholds[]`, `baselines[]`, `ratio`, `sensorOverrides`, `effectiveRatios`, `impactDetection`, `impactDrops[]`, `impactActivity`, `sensorStability`, `totalImpacts`, `calibrating`, `port` | Lecture série ESP32 (~10 ms) |
 | `SENSOR_EVENT` | `sensor` (0–6), `state` (bool) | Front détection / libération capteur |
+| `SENSOR_IMPACT` | `sensors[]`, `drops[]`, `magnitude`, `peakDrop`, `sensorCount`, `timestamp`, `totalImpacts` | Impact structure (chutes ADC corrélées sur plusieurs capteurs) |
+| `SENSOR_IMPACT_CONFIG_CHANGED` | `impactDetection` (objet complet : `sensitivity`, `minDrop`, `minSensors`, …) | Sensibilité impact modifiée |
 | `SENSOR_CALIBRATION_START` | `duration` (s) | Début calibration |
 | `SENSOR_CALIBRATION_PROGRESS` | `progress`, `elapsed`, `values[]` | Pendant calibration |
 | `SENSOR_CALIBRATION_DONE` | `baselines[]`, `thresholds[]`, `ratio`, `sensorOverrides`, `effectiveRatios` | Calibration terminée |
@@ -266,6 +304,21 @@ Exemple `HUB_TRIGGER` (idle, déclenché par l'ESP32) :
 
 La page `/tv` fait alors chuter un 🏀 dans la colonne correspondante sur l'écran d'attente.
 
+Exemple `SENSOR_IMPACT` (dashboard `/sensors`) :
+
+```json
+{
+  "type": "SENSOR_IMPACT",
+  "sensors": [0, 1, 2, 3],
+  "drops": [52, 48, 61, 45],
+  "magnitude": 52,
+  "peakDrop": 61,
+  "sensorCount": 4,
+  "timestamp": 1719150000123,
+  "totalImpacts": 12
+}
+```
+
 ---
 
 ## 3. Contrat standard d'un serveur de jeu
@@ -275,12 +328,13 @@ Tout serveur de jeu (lancé par le hub sur le port `GAME_PORT`) **doit** exposer
 | Endpoint | Rôle |
 |----------|------|
 | `POST /api/trigger` | Reçoit une colonne (`column` ou `col`) et joue un coup |
+| `POST /api/impact` | Fourni par `createGameServer()` — reçoit un impact structure relayé par le hub et diffuse `STRUCTURE_IMPACT` en WS (cosmétique uniquement) |
 | `GET /api/state` | Retourne l'état complet du jeu |
 | `POST /api/reset` | Réinitialise la manche en cours |
 | `GET /api/health` | `{ "status": "ok", "game": "...", "clients": N }` |
 | `WS /` | Envoie `INIT` à la connexion puis diffuse les événements du jeu |
 
-`createGameServer()` fournit gratuitement `/api/health`, `/api/log`, le WebSocket (avec `INIT`), le service statique du jeu et de `/shared`. Le jeu n'écrit que ses routes `trigger`/`reset`/`state` et ses propres messages WebSocket.
+`createGameServer()` fournit gratuitement `/api/health`, `/api/log`, `/api/impact`, le WebSocket (avec `INIT`), le service statique du jeu et de `/shared`. Le jeu n'écrit que ses routes `trigger`/`reset`/`state` et ses propres messages WebSocket.
 
 ### Réponse type de `POST /api/trigger` (exemple Puissance 4)
 
@@ -291,5 +345,38 @@ Coup valide :
 ```
 
 Coup invalide → `HTTP 422` `{ "success": false, "error": "COLUMN_FULL" }`.
+
+### `POST /api/impact`
+
+Fourni par `shared/server/createGameServer.js`. Le hub relaie automatiquement les impacts structure détectés vers le jeu actif.
+
+Corps JSON (relayé tel quel par le hub) :
+
+```json
+{
+  "sensors": [0, 1, 2, 3],
+  "drops": [52, 48, 61, 45],
+  "magnitude": 52,
+  "peakDrop": 61,
+  "sensorCount": 4,
+  "timestamp": 1719150000123
+}
+```
+
+Réponse : `{ "success": true }`. Le serveur diffuse en WebSocket :
+
+```json
+{
+  "type": "STRUCTURE_IMPACT",
+  "sensors": [0, 1, 2, 3],
+  "drops": [52, 48, 61, 45],
+  "magnitude": 52,
+  "peakDrop": 61,
+  "sensorCount": 4,
+  "timestamp": 1719150000123
+}
+```
+
+L'interface du jeu consomme ce message via `shared/client/structure-impact.js` (shake, flash, colonnes physiques, son) — **aucun effet sur la logique de jeu**.
 
 > Les messages WebSocket diffusés par chaque jeu (ex. `TOKEN_PLACED`, `GAME_OVER`, `DRAW`, `RESET`, `TOKEN_ERROR` pour Puissance 4) sont décrits dans la doc du jeu : `games/<id>/docs/API.md`.

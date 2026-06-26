@@ -98,6 +98,54 @@
   100% { opacity: 0; transform: scale(1.04) translateY(-8px); }
 }
 
+.fx-thief {
+  position: fixed;
+  font-size: 3rem;
+  z-index: 200;
+  animation: fxPop 0.8s ease-out forwards;
+  pointer-events: none;
+}
+
+.fx-golden {
+  position: fixed;
+  font-size: 3.2rem;
+  z-index: 200;
+  animation: fxPop 0.9s ease-out forwards;
+  pointer-events: none;
+  filter: drop-shadow(0 0 16px rgba(255, 215, 0, 0.8));
+}
+
+@keyframes dropColLedBlink {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.35; transform: translateX(-50%) scale(0.82); }
+}
+
+@keyframes dropColLedConfirm {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+  50% { opacity: 0.5; transform: translateX(-50%) scale(0.9); }
+}
+
+.minigame-board__drop-cell.is-led-blink {
+  background: rgba(255, 140, 0, 0.12);
+}
+
+.minigame-board__drop-cell.is-led-blink::before {
+  content: '';
+  display: block;
+  width: clamp(8px, 1.4vw, 14px);
+  height: clamp(8px, 1.4vw, 14px);
+  border-radius: 50%;
+  background: var(--gold, #ffd700);
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+  animation: dropColLedBlink 0.85s ease-in-out infinite;
+}
+
+.minigame-intro-overlay__banner--golden {
+  color: #ffd700;
+  border: 2px solid rgba(255, 215, 0, 0.55);
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.55);
+}
+
 @keyframes pegHit {
   0% { transform: scale(1); }
   40% { transform: scale(1.35); }

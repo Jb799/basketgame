@@ -67,6 +67,13 @@
   color: var(--warning);
 }
 
+.player-card__stats {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+  margin-top: 0.15rem;
+}
+
 .player-card__actions {
   display: flex;
   gap: 0.4rem;

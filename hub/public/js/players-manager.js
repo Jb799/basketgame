@@ -44,6 +44,26 @@
     return (pseudo || '?').trim().slice(0, 2).toUpperCase();
   }
 
+  const GAME_LABELS = {
+    plinko: 'Plinko',
+    puissance4: 'P4',
+  };
+
+  function formatStatsSummary(stats) {
+    if (!stats?.totals) return 'Aucune partie jouée';
+    const { wins = 0, gamesPlayed = 0 } = stats.totals;
+    if (!gamesPlayed) return 'Aucune partie jouée';
+
+    const parts = [`${wins} victoire${wins !== 1 ? 's' : ''}`];
+    const byGame = stats.byGame || {};
+    for (const [id, entry] of Object.entries(byGame)) {
+      if (!entry?.wins) continue;
+      const label = GAME_LABELS[id] || id;
+      parts.push(`${label} ${entry.wins}`);
+    }
+    return parts.join(' · ');
+  }
+
   function renderGrid() {
     emptyState.hidden = players.length > 0;
     grid.innerHTML = '';
@@ -58,11 +78,13 @@
 
       const statusClass = p.hasAllPhotos ? '' : ' is-incomplete';
       const statusText = p.hasAllPhotos ? '3 photos ✓' : 'Photos incomplètes';
+      const statsText = formatStatsSummary(p.statistics);
 
       card.innerHTML = `
         ${avatar}
         <div class="player-card__name">${escapeHtml(p.pseudo)}</div>
         <div class="player-card__status${statusClass}">${statusText}</div>
+        <div class="player-card__stats">${escapeHtml(statsText)}</div>
         <div class="player-card__actions">
           <button class="btn btn--ghost" data-act="edit">Éditer</button>
           <button class="btn btn--danger" data-act="delete">Suppr.</button>

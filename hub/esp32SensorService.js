@@ -20,6 +20,8 @@ const {
   saveSensorConfig,
   getEffectiveRatio,
 } = require('./sensorConfig');
+const { ImpactDetector, normalizeImpactConfig, MIN_SENSITIVITY, MAX_SENSITIVITY } = require('../shared/modules/impact-detector');
+const { SensorStabilityTracker } = require('../shared/modules/sensor-stability');
 
 const NUM_SENSORS = PLATFORM_COLUMNS;
 const HISTORY_SIZE = 100;
@@ -46,11 +48,16 @@ class Esp32SensorService {
   constructor() {
     this.broadcast = () => {};
     this.onTrigger = async () => {};
+    this.onImpact = async () => {};
+
+    this.simulationMode = false;
 
     this.sensorValues = Array(NUM_SENSORS).fill(4095);
+    this._previousValues = Array(NUM_SENSORS).fill(4095);
     this.sensorStates = Array(NUM_SENSORS).fill(false);
     this.sensorHistory = emptyHistory();
     this.totalDetections = Array(NUM_SENSORS).fill(0);
+    this.totalImpacts = 0;
     this.sensorBaselines = Array(NUM_SENSORS).fill(4095);
     this.sensorThresholds = Array(NUM_SENSORS).fill(2000);
 
@@ -70,6 +77,13 @@ class Esp32SensorService {
     const config = loadSensorConfig();
     this.thresholdRatio = config.thresholdRatio;
     this.sensorOverrides = { ...config.sensorOverrides };
+    this.impactDetection = { ...config.impactDetection };
+    this._impactDetector = new ImpactDetector(this.impactDetection);
+    this._stabilityTracker = new SensorStabilityTracker();
+  }
+
+  _stabilitySnapshot() {
+    return this._stabilityTracker.getSnapshot();
   }
 
   setOnStateChange(fn) {
@@ -88,10 +102,15 @@ class Esp32SensorService {
     this.onTrigger = fn;
   }
 
+  setOnImpact(fn) {
+    this.onImpact = fn;
+  }
+
   _configSnapshot() {
     return {
       thresholdRatio: this.thresholdRatio,
       sensorOverrides: { ...this.sensorOverrides },
+      impactDetection: { ...this.impactDetection },
     };
   }
 
@@ -132,14 +151,16 @@ class Esp32SensorService {
     });
   }
 
-  /** Prêt pour lancer un jeu (connecté + calibration terminée). */
+  /** Prêt pour lancer un jeu (connecté + calibration terminée, ou mode simulation). */
   isReady() {
+    if (this.simulationMode) return !this.calibrationPhase;
     return this.serialConnected && !this.calibrationPhase;
   }
 
   getStatus() {
     return {
-      connected: this.serialConnected,
+      connected: this.simulationMode || this.serialConnected,
+      simulated: this.simulationMode,
       port: this.serialPortName,
       values: this.sensorValues,
       states: this.sensorStates,
@@ -154,6 +175,13 @@ class Esp32SensorService {
       sensorOverrides: { ...this.sensorOverrides },
       effectiveRatios: this._getEffectiveRatios(),
       calibrationDuration: CALIBRATION_DURATION_S,
+      totalImpacts: this.totalImpacts,
+      impactDetection: { ...this.impactDetection },
+      impactDrops: this._impactDetector.lastDrops,
+      impactActivity: this._impactDetector.lastDrops.filter(
+        (d) => d >= (this.impactDetection.minDrop ?? 15)
+      ).length,
+      sensorStability: this._stabilitySnapshot(),
     };
   }
 
@@ -240,6 +268,35 @@ class Esp32SensorService {
     };
   }
 
+  /**
+   * Met à jour la sensibilité impact (10 = sensible, 90 = tolérant), persiste et réapplique.
+   * @param {number} sensitivity — entre 10 et 90
+   */
+  setImpactSensitivity(sensitivity) {
+    const value = Number(sensitivity);
+    if (!Number.isFinite(value) || value < MIN_SENSITIVITY || value > MAX_SENSITIVITY) {
+      return { ok: false, error: 'INVALID_IMPACT_SENSITIVITY' };
+    }
+
+    this.impactDetection = normalizeImpactConfig({
+      enabled: this.impactDetection.enabled,
+      sensitivity: Math.round(value),
+      peakSamples: this.impactDetection.peakSamples,
+    });
+    this._impactDetector.setConfig(this.impactDetection);
+    this._persistConfig();
+
+    this._emit('SENSOR_IMPACT_CONFIG_CHANGED', {
+      impactDetection: { ...this.impactDetection },
+    });
+    this._emitSensorUpdate();
+
+    return {
+      ok: true,
+      impactDetection: { ...this.impactDetection },
+    };
+  }
+
   _emit(type, data = {}) {
     this.broadcast({ type, ...data });
   }
@@ -258,6 +315,13 @@ class Esp32SensorService {
       ratio: this.thresholdRatio,
       sensorOverrides: { ...this.sensorOverrides },
       effectiveRatios: this._getEffectiveRatios(),
+      impactDetection: { ...this.impactDetection },
+      totalImpacts: this.totalImpacts,
+      impactDrops: this._impactDetector.lastDrops,
+      impactActivity: this._impactDetector.lastDrops.filter(
+        (d) => d >= (this.impactDetection.minDrop ?? 15)
+      ).length,
+      sensorStability: this._stabilitySnapshot(),
     });
   }
 
@@ -266,9 +330,21 @@ class Esp32SensorService {
     this.calibrationStart = null;
     this.calibrationSamples = Array.from({ length: NUM_SENSORS }, () => []);
     this.sensorStates = Array(NUM_SENSORS).fill(false);
+    this._previousValues = Array(NUM_SENSORS).fill(4095);
+    this._impactDetector.reset();
+    this._stabilityTracker.reset();
     this._emit('SENSOR_CALIBRATION_START', { duration: CALIBRATION_DURATION_S });
     this._notifyStateChange();
     console.log(`[ESP32] Recalibration (${CALIBRATION_DURATION_S}s)…`);
+
+    if (this.simulationMode) {
+      for (let i = 0; i < NUM_SENSORS; i++) {
+        this.calibrationSamples[i] = Array(20).fill(4095);
+      }
+      this.calibrationStart = Date.now() - CALIBRATION_DURATION_S * 1000;
+      this._processCalibration(Array(NUM_SENSORS).fill(4095));
+      this._emitSensorUpdate();
+    }
   }
 
   async findPort() {
@@ -296,6 +372,7 @@ class Esp32SensorService {
   }
 
   async start(portPath = null) {
+    if (this.simulationMode) return;
     if (this._starting) return;
     this._starting = true;
 
@@ -391,6 +468,164 @@ class Esp32SensorService {
     this._startReconnectLoop();
   }
 
+  /**
+   * Mode développement sans ESP32 : capteurs virtuels, détection et impacts simulables.
+   */
+  startSimulation() {
+    this.simulationMode = true;
+    this._stopReconnectLoop();
+    this.serialConnected = true;
+    this.serialPortName = 'Simulation (dev)';
+    this.calibrationPhase = false;
+    this.calibrationStart = null;
+
+    for (let i = 0; i < NUM_SENSORS; i++) {
+      this.sensorBaselines[i] = 4095;
+      this.sensorValues[i] = 4095;
+      this._previousValues[i] = 4095;
+      this.sensorStates[i] = false;
+    }
+    this._recomputeThresholds();
+
+    console.log('[ESP32] Mode simulation actif — pas de port série USB');
+    this._emit('SENSOR_SERIAL_STATUS', {
+      connected: true,
+      port: this.serialPortName,
+      simulated: true,
+    });
+    this._emit('SENSOR_CALIBRATION_DONE', {
+      baselines: this.sensorBaselines,
+      thresholds: this.sensorThresholds,
+      ratio: this.thresholdRatio,
+      sensorOverrides: { ...this.sensorOverrides },
+      effectiveRatios: this._getEffectiveRatios(),
+      simulated: true,
+    });
+    this._emitSensorUpdate();
+    this._notifyStateChange();
+  }
+
+  /**
+   * Injecte des valeurs ADC comme une ligne RAW: de l'ESP32.
+   * @param {number[]} values
+   */
+  _feedRawValues(values) {
+    if (values.length !== NUM_SENSORS || values.some((v) => Number.isNaN(v))) return;
+
+    if (this.calibrationPhase) {
+      this._processCalibration(values);
+      this.sensorValues = values;
+      for (let i = 0; i < NUM_SENSORS; i++) {
+        this.sensorHistory[i].push(values[i]);
+        if (this.sensorHistory[i].length > HISTORY_SIZE) {
+          this.sensorHistory[i].shift();
+        }
+      }
+      this._previousValues = values.slice();
+      return;
+    }
+
+    this._processDetection(values);
+    this._processImpactDetection(values);
+
+    this.sensorValues = values;
+    for (let i = 0; i < NUM_SENSORS; i++) {
+      this.sensorHistory[i].push(values[i]);
+      if (this.sensorHistory[i].length > HISTORY_SIZE) {
+        this.sensorHistory[i].shift();
+      }
+    }
+
+    this._previousValues = values.slice();
+    this._emitSensorUpdate();
+  }
+
+  /**
+   * Simule le passage d'une balle dans une colonne (dashboard + trigger jeu).
+   * @param {number} col — index 0–6
+   * @returns {Promise<{ status: number, body: object }>}
+   */
+  async simulateBallInColumn(col) {
+    if (!this.simulationMode) {
+      return { status: 400, body: { success: false, error: 'NOT_SIMULATION_MODE' } };
+    }
+    if (!this.isReady()) {
+      return { status: 503, body: { success: false, error: 'ESP32_NOT_READY' } };
+    }
+
+    const idx = Number(col);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= NUM_SENSORS) {
+      return { status: 400, body: { success: false, error: 'INVALID_COLUMN' } };
+    }
+
+    const detectedValue = Math.max(0, this.sensorThresholds[idx] - 150);
+
+    if (this.sensorStates[idx]) {
+      const clear = this.sensorValues.slice();
+      clear[idx] = this.sensorBaselines[idx];
+      this.sensorStates[idx] = false;
+      this._feedRawValues(clear);
+    }
+
+    const values = this.sensorValues.slice();
+    values[idx] = detectedValue;
+
+    let capturedPromise;
+    const prevOnTrigger = this.onTrigger;
+    this.onTrigger = (c) => {
+      capturedPromise = prevOnTrigger(c);
+      return capturedPromise;
+    };
+
+    this._feedRawValues(values);
+    this.onTrigger = prevOnTrigger;
+
+    const captured = capturedPromise ? await capturedPromise : null;
+
+    const baseline = this.sensorBaselines[idx];
+    setTimeout(() => {
+      const release = this.sensorValues.slice();
+      release[idx] = baseline;
+      this._feedRawValues(release);
+    }, 280);
+
+    return captured ?? { status: 200, body: { success: true, column: idx, simulated: true } };
+  }
+
+  /**
+   * Simule un impact structure (chute simultanée sur plusieurs capteurs).
+   * @param {number[]} sensors — index capteurs 0–6
+   */
+  simulateStructureImpact(sensors) {
+    if (!this.simulationMode) {
+      return { ok: false, error: 'NOT_SIMULATION_MODE' };
+    }
+    if (!this.isReady()) {
+      return { ok: false, error: 'ESP32_NOT_READY' };
+    }
+
+    const indices = (Array.isArray(sensors) ? sensors : [])
+      .map((s) => Number(s))
+      .filter((s) => Number.isInteger(s) && s >= 0 && s < NUM_SENSORS);
+
+    if (indices.length === 0) {
+      return { ok: false, error: 'INVALID_SENSORS' };
+    }
+
+    const values = this.sensorValues.slice();
+    for (const idx of indices) {
+      values[idx] = Math.max(0, this.sensorThresholds[idx] - 200);
+    }
+    this._feedRawValues(values);
+
+    setTimeout(() => {
+      const clear = this.sensorBaselines.slice();
+      this._feedRawValues(clear);
+    }, 120);
+
+    return { ok: true, sensors: indices };
+  }
+
   _handleLine(line) {
     const trimmed = String(line).trim();
     if (!trimmed.startsWith('RAW:')) return;
@@ -406,6 +641,8 @@ class Esp32SensorService {
       return;
     }
 
+    const previousValues = this._previousValues;
+
     this.sensorValues = values;
     for (let i = 0; i < NUM_SENSORS; i++) {
       this.sensorHistory[i].push(values[i]);
@@ -418,8 +655,10 @@ class Esp32SensorService {
       this._processCalibration(values);
     } else {
       this._processDetection(values);
+      this._processImpactDetection(values);
     }
 
+    this._previousValues = values.slice();
     this._emitSensorUpdate();
   }
 
@@ -496,6 +735,23 @@ class Esp32SensorService {
     }
   }
 
+  _processImpactDetection(values) {
+    if (!this.impactDetection.enabled) return;
+
+    const impact = this._impactDetector.tick(values);
+    if (!impact) return;
+
+    this.totalImpacts += 1;
+    this._stabilityTracker.recordImpact(impact.sensors, impact.timestamp);
+    this._emit('SENSOR_IMPACT', { ...impact, totalImpacts: this.totalImpacts });
+    console.log(
+      `[ESP32] Impact structure — ${impact.sensorCount} capteurs, magnitude=${impact.magnitude}, peak=${impact.peakDrop}`
+    );
+    this.onImpact(impact).catch((err) => {
+      console.error('[ESP32] Erreur callback impact :', err.message);
+    });
+  }
+
   /** Envoie l'état courant à un client WS qui vient de se connecter. */
   syncClient(send) {
     send({
@@ -512,6 +768,13 @@ class Esp32SensorService {
       ratio: this.thresholdRatio,
       sensorOverrides: { ...this.sensorOverrides },
       effectiveRatios: this._getEffectiveRatios(),
+      impactDetection: { ...this.impactDetection },
+      totalImpacts: this.totalImpacts,
+      impactDrops: this._impactDetector.lastDrops,
+      impactActivity: this._impactDetector.lastDrops.filter(
+        (d) => d >= (this.impactDetection.minDrop ?? 15)
+      ).length,
+      sensorStability: this._stabilitySnapshot(),
     });
     if (this.serialConnected) {
       send({ type: 'SENSOR_SERIAL_STATUS', connected: true, port: this.serialPortName });

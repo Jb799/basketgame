@@ -1,5 +1,5 @@
 /**
- * minigame.js — Overlay mini-jeux Couteau / Voleur.
+ * minigame.js — Overlay mini-jeux Couteau / Voleur / Panier d'Or.
  */
 
 window.Minigame = (function () {
@@ -18,9 +18,30 @@ window.Minigame = (function () {
   const SLOT_ROLL_MS = 1400;
   const SLOT_PERCENTS = [5, 10, 15, 20, 25];
   const COLUMN_COUNT = 7;
+  const GOLDEN_BASKET_PERIOD_MS = 9000;
 
   let currentKind = null;
   let currentColumns = [];
+  let goldenMovementRaf = null;
+  let goldenState = null;
+  let goldenBasketEl = null;
+  let goldenRailEl = null;
+  let goldenActiveCol = null;
+
+  /** Position continue 0 … colCount-1 (ping-pong) — affichage fluide pleine largeur */
+  function getGoldenPosAt(elapsedMs, periodMs = GOLDEN_BASKET_PERIOD_MS, colCount = COLUMN_COUNT) {
+    const maxCol = colCount - 1;
+    if (maxCol <= 0) return 0;
+    const cycle = ((elapsedMs % periodMs) + periodMs) % periodMs;
+    const half = periodMs / 2;
+    const t = cycle / half;
+    return t <= 1 ? t * maxCol : (2 - t) * maxCol;
+  }
+
+  /** Colonne discrète — alignée serveur pour le tir */
+  function getGoldenColAt(elapsedMs, periodMs = GOLDEN_BASKET_PERIOD_MS, colCount = COLUMN_COUNT) {
+    return Math.round(getGoldenPosAt(elapsedMs, periodMs, colCount));
+  }
 
   function playerLabelText(n) {
     return window.PlayerFaces ? PlayerFaces.getPseudo(n) : `Joueur ${n}`;
@@ -30,9 +51,82 @@ window.Minigame = (function () {
     return new Promise((r) => setTimeout(r, ms));
   }
 
+  function clearGoldenRail() {
+    const board = columnsEl?.closest('.minigame-board');
+    board?.querySelector('.golden-basket-rail')?.remove();
+    board?.classList.remove('minigame-board--golden');
+    columnsEl?.classList.remove('minigame-columns--golden');
+    goldenRailEl = null;
+    goldenBasketEl = null;
+    goldenActiveCol = null;
+  }
+
   function clearBoardDom() {
     if (dropRowEl) dropRowEl.innerHTML = '';
     if (columnsEl) columnsEl.innerHTML = '';
+    clearGoldenRail();
+  }
+
+  function updateGoldenBasketVisual(posFloat) {
+    if (!goldenBasketEl || !goldenRailEl || !columnsEl) return;
+
+    const colCount = goldenState?.columnCount || COLUMN_COUNT;
+    const railWidth = goldenRailEl.clientWidth;
+    if (railWidth <= 0) return;
+
+    const clamped = Math.max(0, Math.min(colCount - 1, posFloat));
+    const centerX = ((clamped + 0.5) / colCount) * railWidth;
+    goldenBasketEl.style.left = `${centerX}px`;
+
+    const col = Math.round(clamped);
+    if (col !== goldenActiveCol) {
+      goldenActiveCol = col;
+      columnsEl.querySelectorAll('.minigame-col--golden-empty').forEach((el) => {
+        el.classList.toggle('is-golden-active', Number(el.dataset.col) === col);
+      });
+    }
+  }
+
+  function renderGoldenColumns() {
+    if (!columnsEl) return;
+    clearGoldenRail();
+
+    const board = columnsEl.closest('.minigame-board');
+    if (board) board.classList.add('minigame-board--golden');
+
+    columnsEl.classList.add('minigame-columns--golden');
+
+    for (let c = 0; c < COLUMN_COUNT; c++) {
+      const col = document.createElement('div');
+      col.className = 'minigame-col minigame-col--golden-empty';
+      col.dataset.col = String(c);
+
+      const label = document.createElement('span');
+      label.className = 'minigame-col__col-label';
+      label.textContent = `Col ${c + 1}`;
+
+      const slot = document.createElement('div');
+      slot.className = 'minigame-col__slot';
+      slot.appendChild(label);
+      col.appendChild(slot);
+      columnsEl.appendChild(col);
+    }
+
+    if (!board) return;
+
+    const rail = document.createElement('div');
+    rail.className = 'golden-basket-rail';
+    rail.id = 'golden-basket-rail';
+    goldenRailEl = rail;
+
+    goldenBasketEl = document.createElement('div');
+    goldenBasketEl.className = 'golden-basket';
+    goldenBasketEl.id = 'golden-basket';
+    goldenBasketEl.innerHTML = '<span class="golden-basket__icon">🏆</span><span class="golden-basket__value"></span>';
+    rail.appendChild(goldenBasketEl);
+    board.appendChild(rail);
+
+    updateGoldenBasketVisual(0);
   }
 
   function normalizeColumns(raw) {
@@ -90,7 +184,7 @@ window.Minigame = (function () {
     return Array.from({ length: COLUMN_COUNT }, (_, col) => ({ col, type: 'hole' }));
   }
 
-  function renderDropRow() {
+  function renderDropRow(withLeds = false) {
     if (!dropRowEl) return;
     dropRowEl.innerHTML = '';
     for (let c = 0; c < COLUMN_COUNT; c++) {
@@ -98,7 +192,62 @@ window.Minigame = (function () {
       cell.className = 'minigame-board__drop-cell';
       cell.dataset.col = String(c);
       cell.textContent = String(c + 1);
+      if (withLeds) {
+        cell.classList.add('minigame-board__drop-cell--led');
+      }
       dropRowEl.appendChild(cell);
+    }
+  }
+
+  function setDropRowLed(col, mode) {
+    dropRowEl?.querySelectorAll('.minigame-board__drop-cell').forEach((el) => {
+      const match = Number(el.dataset.col) === col;
+      el.classList.remove('is-active', 'is-led-blink', 'is-led-confirm');
+      if (!match || mode === 'off') return;
+      if (mode === 'blink') {
+        el.classList.add('is-active', 'is-led-blink');
+      } else {
+        el.classList.add('is-active');
+      }
+    });
+  }
+
+  function startGoldenMovement(msg) {
+    stopGoldenMovement();
+    goldenState = {
+      movementStartedAt: msg.movementStartedAt || Date.now(),
+      periodMs: msg.periodMs || GOLDEN_BASKET_PERIOD_MS,
+      columnCount: msg.columnCount || COLUMN_COUNT,
+      coinReward: msg.coinReward,
+    };
+
+    const valueEl = goldenBasketEl?.querySelector('.golden-basket__value');
+    if (valueEl && goldenState.coinReward != null) {
+      valueEl.textContent = `+${goldenState.coinReward}`;
+    }
+
+    function tick() {
+      if (!goldenBasketEl || !goldenState) return;
+      const elapsed = Date.now() - goldenState.movementStartedAt;
+      const pos = getGoldenPosAt(elapsed, goldenState.periodMs, goldenState.columnCount);
+      updateGoldenBasketVisual(pos);
+      goldenMovementRaf = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function updateGoldenMovement(msg) {
+    if (!goldenBasketEl || msg.kind !== 'golden') return;
+    if (msg.coinReward != null && goldenState) goldenState.coinReward = msg.coinReward;
+    if (msg.movementStartedAt != null) {
+      startGoldenMovement(msg);
+    }
+  }
+
+  function stopGoldenMovement() {
+    if (goldenMovementRaf) {
+      cancelAnimationFrame(goldenMovementRaf);
+      goldenMovementRaf = null;
     }
   }
 
@@ -170,9 +319,7 @@ window.Minigame = (function () {
   }
 
   function highlightColumn(col) {
-    dropRowEl?.querySelectorAll('.minigame-board__drop-cell').forEach((el) => {
-      el.classList.toggle('is-active', Number(el.dataset.col) === col);
-    });
+    setDropRowLed(col, 'blink');
     columnsEl?.querySelectorAll('.minigame-col').forEach((el) => {
       el.classList.toggle('is-active', Number(el.dataset.col) === col);
     });
@@ -180,7 +327,7 @@ window.Minigame = (function () {
 
   function clearHighlight() {
     dropRowEl?.querySelectorAll('.minigame-board__drop-cell').forEach((el) => {
-      el.classList.remove('is-active');
+      el.classList.remove('is-active', 'is-led-blink', 'is-led-confirm');
     });
     columnsEl?.querySelectorAll('.minigame-col').forEach((el) => {
       el.classList.remove('is-active', 'is-hit', 'is-targeted', 'is-missed');
@@ -244,38 +391,129 @@ window.Minigame = (function () {
     overlay.hidden = false;
     resetSlot();
     clearBoardDom();
+    stopGoldenMovement();
+    goldenBasketEl = null;
+    goldenState = null;
+    columnsEl.classList.remove('minigame-columns--golden');
 
-    currentColumns = resolveColumns(msg);
-    renderDropRow();
-    renderColumns(currentColumns);
-    setBoardHidden(true);
-
-    if (msg.kind === 'knife') {
-      iconEl.textContent = '🔪';
-      titleEl.textContent = 'COUTEAU';
-      subtitleEl.textContent = 'Touchez un adversaire ou tombez dans le vide';
-      slotLabelEl.textContent = 'Dégâts infligés';
+    if (msg.kind === 'golden') {
+      renderDropRow(true);
+      renderGoldenColumns();
+      iconEl.textContent = '🏆';
+      titleEl.textContent = 'PANIER D\'OR';
+      subtitleEl.textContent = 'Visez le panier en mouvement — gagnez ses pièces !';
+      slotLabelEl.textContent = 'Récompense';
+      if (msg.coinReward != null) {
+        const valueEl = goldenBasketEl?.querySelector('.golden-basket__value');
+        if (valueEl) valueEl.textContent = `+${msg.coinReward}`;
+      }
+      if (msg.movementStartedAt != null) {
+        startGoldenMovement(msg);
+      } else {
+        updateGoldenBasketVisual(0);
+      }
     } else {
-      iconEl.textContent = '🦹';
-      titleEl.textContent = 'VOLEUR';
-      subtitleEl.textContent = 'Volez un adversaire ou ratez dans le vide';
-      slotLabelEl.textContent = 'Pièces volées';
+      currentColumns = resolveColumns(msg);
+      renderDropRow(false);
+      renderColumns(currentColumns);
+
+      if (msg.kind === 'knife') {
+        iconEl.textContent = '🔪';
+        titleEl.textContent = 'COUTEAU';
+        subtitleEl.textContent = 'Touchez un adversaire ou tombez dans le vide';
+        slotLabelEl.textContent = 'Dégâts infligés';
+      } else {
+        iconEl.textContent = '🦹';
+        titleEl.textContent = 'VOLEUR';
+        subtitleEl.textContent = 'Volez un adversaire ou ratez dans le vide';
+        slotLabelEl.textContent = 'Pièces volées';
+      }
     }
+
+    setBoardHidden(true);
 
     void overlay.offsetWidth;
     overlay.classList.add('is-visible');
 
     if (msg.round != null && msg.activePlayer != null) {
+      const hudLabels = {
+        knife: 'Mini-jeu Couteau — visez !',
+        thief: 'Mini-jeu Voleur — visez !',
+        golden: 'Panier d\'Or — visez !',
+      };
       UI.setHud(
         msg.round,
         null,
         playerLabelText(msg.activePlayer),
-        msg.kind === 'knife' ? 'Mini-jeu Couteau — visez !' : 'Mini-jeu Voleur — visez !'
+        hudLabels[msg.kind] || 'Mini-jeu — visez !'
       );
     }
   }
 
+  async function playGoldenResult(msg) {
+    stopGoldenMovement();
+    clearHighlight();
+    highlightColumn(msg.targetCol);
+    UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), 'Tir…');
+
+    await dropBallOnColumn(msg.targetCol);
+
+    const colEl = columnsEl?.querySelector(`[data-col="${msg.targetCol}"]`);
+    const goldenColEl = msg.goldenCol != null
+      ? columnsEl?.querySelector(`[data-col="${msg.goldenCol}"]`)
+      : null;
+
+    if (goldenColEl) {
+      goldenColEl.classList.add('is-golden-here');
+      if (msg.goldenCol != null) updateGoldenBasketVisual(msg.goldenCol);
+      await sleep(300);
+    }
+
+    if (msg.hit) {
+      if (colEl) colEl.classList.add('is-targeted');
+      if (goldenBasketEl) goldenBasketEl.classList.add('is-hit');
+
+      slotWrapEl.classList.add('is-visible');
+      slotEl.textContent = `+${msg.resolvedAmount || msg.coinReward || 0}`;
+      slotEl.classList.add('is-final');
+      if (Sounds.achievement) Sounds.achievement();
+
+      const origin = getColumnCenter(msg.targetCol);
+      await Fx.flyScoreToPlayer(msg.activePlayer, msg.appliedToAttacker || msg.resolvedAmount, {
+        startX: origin.x,
+        startY: origin.y,
+      });
+      Players.updateScore(msg.activePlayer, msg.scores[msg.activePlayer], msg.appliedToAttacker);
+      Fx.flash('gold');
+      UI.setHud(
+        msg.round,
+        null,
+        playerLabelText(msg.activePlayer),
+        `+${msg.resolvedAmount || msg.coinReward} pièces !`
+      );
+    } else {
+      if (colEl) colEl.classList.add('is-missed');
+      const fx = document.createElement('div');
+      fx.className = 'minigame-hole-fx';
+      fx.textContent = 'RATÉ';
+      colEl?.querySelector('.minigame-col__slot')?.appendChild(fx);
+      setTimeout(() => fx.remove(), 900);
+      UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), 'Raté — le panier était ailleurs !');
+    }
+
+    await sleep(700);
+    resetSlot();
+    clearHighlight();
+    if (goldenBasketEl) goldenBasketEl.classList.remove('is-hit');
+    columnsEl?.querySelectorAll('.is-golden-here').forEach((el) => el.classList.remove('is-golden-here'));
+  }
+
   async function playResult(msg) {
+    if (msg.kind === 'golden') {
+      await playGoldenResult(msg);
+      return;
+    }
+
     clearHighlight();
     highlightColumn(msg.targetCol);
     UI.setHud(msg.round, null, playerLabelText(msg.activePlayer), 'Tir…');
@@ -353,6 +591,8 @@ window.Minigame = (function () {
 
   async function hide() {
     if (!overlay) return;
+    stopGoldenMovement();
+    goldenState = null;
     overlay.classList.add('is-exiting');
     overlay.classList.remove('is-visible');
     await sleep(250);
@@ -367,12 +607,26 @@ window.Minigame = (function () {
 
   function restoreFromState(minigame) {
     if (!minigame) return Promise.resolve();
-    return showStart({
+    const base = {
       type: 'MINIGAME_START',
       kind: minigame.kind,
       activePlayer: minigame.activePlayer,
-      columns: minigame.columns,
       round: null,
+    };
+    if (minigame.kind === 'golden') {
+      return showStart({
+        ...base,
+        seed: minigame.seed,
+        coinReward: minigame.coinReward,
+        periodMs: minigame.periodMs,
+        columnCount: minigame.columnCount,
+        movementStartedAt: minigame.movementStartedAt,
+      });
+    }
+    return showStart({
+      ...base,
+      columns: minigame.columns,
+      seed: minigame.seed,
     });
   }
 
@@ -381,6 +635,7 @@ window.Minigame = (function () {
     playResult,
     hide,
     restoreFromState,
+    updateGoldenMovement,
     highlightColumn,
     clearHighlight,
     getColumnCenter,

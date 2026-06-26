@@ -284,10 +284,15 @@ window.Sounds = (function () {
     play('swoosh', { volume: 0.85 });
   }
 
+  function structureImpact(intensity) {
+    const vol = Math.min(1, 0.45 + (intensity || 0.5) * 0.4);
+    play('ballTap', { volume: vol, playbackRate: 0.82 + Math.random() * 0.12 });
+  }
+
   return {
     tokenDrop, tokenLand, changeTurn, roundWin, victory, draw, error, reset, dropStart,
     coinWin, bombHit, multiplierX2, scorePop, scoreImpactGain, scoreImpactLoss,
     meleeHit, gameOver, levelComplete, throwProjectile, spawn, breach, miss, fallMiss,
-    thiefSwoosh,
+    thiefSwoosh, structureImpact,
   };
 })();

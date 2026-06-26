@@ -26,6 +26,10 @@ const { PLATFORM_COLUMNS } = require('../shared/constants');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const SENSOR_SIMULATE =
+  process.env.SENSOR_SIMULATE === '1' ||
+  process.env.BASKETGAME_SIMULATE === '1' ||
+  process.argv.includes('--simulate');
 
 const app = express();
 const server = http.createServer(app);
@@ -38,7 +42,8 @@ const hubClients = new Set();
 
 function getEsp32State() {
   return {
-    connected: sensorService.serialConnected,
+    connected: sensorService.simulationMode || sensorService.serialConnected,
+    simulated: sensorService.simulationMode,
     calibrating: sensorService.calibrationPhase,
     ready: sensorService.isReady(),
     port: sensorService.serialPortName,
@@ -158,13 +163,20 @@ app.post('/api/games/:id/start', async (req, res) => {
 
     const params = { ...validation.params };
 
-    // Jeux à roster : résout les profils choisis en données enrichies (URLs photos).
-    if (game.controller?.requiresPlayerRoster) {
-      const enriched = buildEnrichedRoster(params.roster || []);
+    // Roster : résout les profils choisis en données enrichies (URLs photos).
+    const wantsRoster = game.controller?.requiresPlayerRoster || game.controller?.optionalPlayerRoster;
+    if (wantsRoster && Array.isArray(params.roster) && params.roster.some((id) => id)) {
+      const enriched = buildEnrichedRoster(params.roster, {
+        allowEmptySlots: game.controller?.optionalPlayerRoster === true,
+      });
       if (!enriched.valid) {
         return res.status(400).json({ success: false, error: enriched.error });
       }
       params.roster = enriched.roster;
+    } else if (game.controller?.requiresPlayerRoster) {
+      return res.status(400).json({ success: false, error: 'INVALID_ROSTER' });
+    } else {
+      delete params.roster;
     }
 
     const state = await manager.startGame(req.params.id, params);
@@ -255,22 +267,56 @@ async function handleTrigger(col) {
 }
 
 /**
+ * Relaie un impact structure vers le jeu actif (route optionnelle POST /api/impact).
+ */
+async function handleImpact(impact) {
+  if (!sensorService.isReady()) return;
+
+  const target = manager.getActiveTarget();
+
+  if (!target) {
+    broadcastHubMessage({ type: 'HUB_IMPACT', ...impact });
+    return;
+  }
+
+  try {
+    const r = await fetch(`${target}/api/impact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(impact),
+    });
+    if (r.status === 404) return;
+    if (!r.ok) {
+      console.warn(`[Hub] Jeu a rejeté l'impact : HTTP ${r.status}`);
+    }
+  } catch (e) {
+    console.error('[Hub] Jeu injoignable pour l\'impact :', e.message);
+  }
+}
+
+/**
  * POST /api/trigger — Entrée manuelle (simulateur) ou HTTP legacy.
  * Body: { "column": 0-6 } ou query string ?col=3.
  */
 app.post('/api/trigger', async (req, res) => {
   const col = parseTriggerColumn(req);
+  if (sensorService.simulationMode) {
+    const result = await sensorService.simulateBallInColumn(col);
+    return res.status(result.status).json(result.body);
+  }
   const result = await handleTrigger(col);
   res.status(result.status).json(result.body);
 });
 
 // ─── Capteurs ESP32 (série USB) ───────────────────────────────────────────────
 sensorService.setBroadcast(broadcastHubMessage);
-sensorService.setOnTrigger(async (col) => {
-  await handleTrigger(col);
+sensorService.setOnTrigger(async (col) => handleTrigger(col));
+sensorService.setOnImpact(async (impact) => {
+  await handleImpact(impact);
 });
 sensorService.setOnStateChange(async () => {
   broadcastHubState();
+  if (sensorService.simulationMode) return;
   if (!sensorService.serialConnected && manager.getState().status === 'running') {
     console.warn('[Hub] ESP32 déconnecté — arrêt du jeu actif');
     await manager.stopGame();
@@ -282,11 +328,24 @@ app.get('/api/sensors/status', (req, res) => {
 });
 
 app.post('/api/sensors/recalibrate', (req, res) => {
-  if (!sensorService.serialConnected) {
+  if (!sensorService.serialConnected && !sensorService.simulationMode) {
     return res.status(503).json({ success: false, error: 'SERIAL_NOT_CONNECTED' });
   }
   sensorService.recalibrate();
-  res.json({ success: true, calibrating: true });
+  res.json({ success: true, calibrating: true, simulated: sensorService.simulationMode });
+});
+
+app.post('/api/sensors/simulate/impact', (req, res) => {
+  if (!sensorService.simulationMode) {
+    return res.status(400).json({ success: false, error: 'NOT_SIMULATION_MODE' });
+  }
+  const sensors = req.body?.sensors;
+  const result = sensorService.simulateStructureImpact(sensors);
+  if (!result.ok) {
+    const status = result.error === 'INVALID_SENSORS' ? 400 : 503;
+    return res.status(status).json({ success: false, error: result.error });
+  }
+  res.json({ success: true, sensors: result.sensors, simulated: true });
 });
 
 function handleThresholdUpdate(req, res) {
@@ -386,6 +445,31 @@ function handleThresholdUpdate(req, res) {
 app.patch('/api/sensors/threshold', handleThresholdUpdate);
 app.post('/api/sensors/threshold', handleThresholdUpdate);
 
+function handleImpactSensitivityUpdate(req, res) {
+  const raw = req.body?.percent ?? req.body?.sensitivity;
+  if (raw === undefined || raw === null || raw === '') {
+    return res.status(400).json({ success: false, error: 'SENSITIVITY_REQUIRED' });
+  }
+  const num = Number(raw);
+  if (!Number.isFinite(num)) {
+    return res.status(400).json({ success: false, error: 'INVALID_IMPACT_SENSITIVITY' });
+  }
+
+  const result = sensorService.setImpactSensitivity(num);
+  if (!result.ok) {
+    return res.status(400).json({ success: false, error: result.error });
+  }
+
+  res.json({
+    success: true,
+    percent: result.impactDetection.sensitivity,
+    impactDetection: result.impactDetection,
+  });
+}
+
+app.patch('/api/sensors/impact-sensitivity', handleImpactSensitivityUpdate);
+app.post('/api/sensors/impact-sensitivity', handleImpactSensitivityUpdate);
+
 // ─── Pages ────────────────────────────────────────────────────────────────────
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared', 'client')));
 app.use(express.static(PUBLIC_DIR));
@@ -432,10 +516,18 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`║   Télé       →  http://localhost:${PORT}/tv     ║`);
   console.log(`║   Capteurs   →  http://localhost:${PORT}/sensors  ║`);
   console.log(`║   Trigger    →  POST /api/trigger            ║`);
+  if (SENSOR_SIMULATE) {
+    console.log('║   Mode       →  SIMULATION (sans ESP32)      ║');
+  }
   console.log('╚══════════════════════════════════════════════╝');
   console.log('');
   const games = listGames();
   console.log(`[Hub] ${games.length} jeu(x) découvert(s) :`, games.map((g) => g.id).join(', ') || '(aucun)');
+
+  if (SENSOR_SIMULATE) {
+    sensorService.startSimulation();
+    return;
+  }
 
   const serialArg = process.argv.find((a) => a.startsWith('--serial-port='));
   const serialPort = serialArg ? serialArg.split('=')[1] : null;

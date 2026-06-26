@@ -115,14 +115,16 @@ const { parseStartParams } = require('../../../shared/server/parseStartParams');
 const params = parseStartParams(); // ex. { playerCount: 4 }
 ```
 
-### Section `controller.requiresPlayerRoster` — choix des joueurs
+### Section `controller` — choix des joueurs (roster)
 
-Ajouter `"requiresPlayerRoster": true` dans `controller` pour qu'un jeu **impose**
-de choisir des profils joueurs (pseudo + 3 photos) avant le lancement.
+**Obligatoire** — `"requiresPlayerRoster": true` : le contrôleur impose un profil par emplacement.
+
+**Optionnel** — `"optionalPlayerRoster": true` : le contrôleur propose un choix par emplacement,
+mais le lancement est possible sans profil (avatars par défaut : initiales **J1**, **J2**…).
 
 ```json
 "controller": {
-  "requiresPlayerRoster": true,
+  "optionalPlayerRoster": true,
   "startOptions": [ ... ],
   "actions": [ ... ]
 }
@@ -130,21 +132,22 @@ de choisir des profils joueurs (pseudo + 3 photos) avant le lancement.
 
 - Le contrôleur affiche un emplacement par joueur. Le nombre d'emplacements vaut
   `playerCount` (si une `startOption` du même nom existe) sinon `players.min`.
-- Seuls les profils ayant leurs **3 photos** sont sélectionnables ; pas de doublon.
+- Seuls les profils ayant leurs **3 photos** sont requis si `requiresPlayerRoster: true`.
+  Avec `optionalPlayerRoster`, tous les profils enregistrés sont sélectionnables (photos partielles OK) ; pas de doublon.
 - Le hub valide puis injecte un `roster` enrichi (slot, pseudo, URLs des photos)
-  dans `GAME_START_PARAMS`.
+  dans `GAME_START_PARAMS` pour les emplacements remplis.
 
 Côté serveur de jeu :
 
 ```js
 const { parseRoster } = require('../../../shared/server/parseRoster');
-this.roster = parseRoster(); // [{ slot, profileId, pseudo, photos: { idle, win, lose } }]
+this.roster = parseRoster(); // [] si aucun profil — repli initiales côté client
 // puis l'exposer dans getState() pour l'interface
 ```
 
 Côté interface (télé), charger `/shared/player-faces.js` + `/shared/player-faces.css`,
-appeler `PlayerFaces.setRoster(state.roster)` puis utiliser `PlayerFaces` pour afficher
-la bonne photo (`idle` / `win` / `lose`) selon le contexte.
+appeler `PlayerFaces.setRoster(state.roster)` puis utiliser `PlayerFaces.createFace()` :
+photo si profil présent, sinon placeholder initiales (2 caractères).
 
 ### Section `controller.actions` — boutons du contrôleur
 

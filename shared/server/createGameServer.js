@@ -5,7 +5,7 @@
  *   - Express + CORS + JSON
  *   - Serveur WebSocket (avec INIT à la connexion)
  *   - Fichiers statiques du jeu (publicDir) et du client partagé (/shared)
- *   - Endpoint /api/health et /api/log
+ *   - Endpoint /api/health, /api/log et /api/impact
  *   - Helper broadcast()
  *
  * La logique propre au jeu (routes /api/trigger, /api/reset, etc.) est
@@ -68,6 +68,21 @@ function createGameServer({ name, publicDir, getInitMessage, routes }) {
       console.error(`[${name}][WS] Erreur:`, err.message);
       clients.delete(ws);
     });
+  });
+
+  // Impact structure relayé par le hub — diffusion cosmétique uniquement.
+  app.post('/api/impact', (req, res) => {
+    const b = req.body || {};
+    broadcast({
+      type: 'STRUCTURE_IMPACT',
+      sensors: b.sensors,
+      drops: b.drops,
+      magnitude: b.magnitude,
+      peakDrop: b.peakDrop,
+      sensorCount: b.sensorCount,
+      timestamp: b.timestamp,
+    });
+    res.json({ success: true });
   });
 
   // Routes spécifiques au jeu.

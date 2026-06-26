@@ -41,14 +41,14 @@ window.UI = (function () {
     showWinnerPortrait(player);
 
     // Pluie de têtes du gagnant de la manche.
-    if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+    if (window.PlayerFaces) {
       PlayerFaces.rainHeads([Number(player)], { count: 10, variant: 'win' });
     }
   }
 
-  /** Portrait « fierté » du gagnant qui apparaît au centre brièvement. */
+  /** Portrait du gagnant (photo ou initiales) au centre brièvement. */
   function showWinnerPortrait(player) {
-    if (!window.PlayerFaces || !PlayerFaces.hasRoster()) return;
+    if (!window.PlayerFaces) return;
     const face = PlayerFaces.createFace({ slot: Number(player), variant: 'win', size: 'xxl' });
     face.classList.add('victory-portrait');
     document.body.appendChild(face);
@@ -92,19 +92,29 @@ window.UI = (function () {
 
     overlay.className = `series-win-overlay p${winnerNum}`;
 
-    const hasFace = window.PlayerFaces && PlayerFaces.hasRoster();
+    const winnerNum = Number(winner);
     if (title) {
-      title.textContent = hasFace ? PlayerFaces.getPseudo(winnerNum) : (PLAYER_LABELS[winnerNum] || `Joueur ${winnerNum}`);
+      title.textContent = window.PlayerFaces
+        ? PlayerFaces.getPseudo(winnerNum)
+        : (PLAYER_LABELS[winnerNum] || `Joueur ${winnerNum}`);
     }
     if (subtitle) subtitle.textContent = `${SERIES_WIN_TARGET} victoires`;
 
     const token = document.getElementById('series-win-token');
-    if (token && hasFace) {
+    if (token && window.PlayerFaces) {
+      token.innerHTML = '';
+      token.classList.remove('series-win-token--photo');
+      token.style.backgroundImage = '';
       const url = PlayerFaces.getUrl(winnerNum, 'win');
       if (url) {
         token.style.backgroundImage = `url("${url}")`;
         token.style.backgroundSize = 'cover';
         token.style.backgroundPosition = 'center';
+        token.classList.add('series-win-token--photo');
+      } else {
+        const face = PlayerFaces.createFace({ slot: winnerNum, variant: 'win', size: 'lg' });
+        face.classList.add('series-win-token__face');
+        token.appendChild(face);
       }
     }
 

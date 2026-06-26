@@ -22,18 +22,20 @@ Accumuler le maximum de **pièces** en 5 tours. Chaque case du bas rapporte des 
 | Coups par tour | Chaque joueur joue **une fois** sur le **même plateau** |
 | Nouveau plateau | Généré aléatoirement au début de chaque tour |
 
-### Profils joueurs (roster)
+### Profils joueurs (roster, optionnel)
 
-Plinko déclare `controller.requiresPlayerRoster` : au lancement, le contrôleur fait
-choisir le nombre de joueurs (2–5) **puis** un profil par emplacement (créés sur `/players`,
-avec leurs 3 photos). Le hub transmet un `roster` enrichi rangé dans `state.roster`
+Plinko déclare `controller.optionalPlayerRoster` : au lancement, le contrôleur propose
+le nombre de joueurs (2–5) et un **choix optionnel** de profil par emplacement (page `/players`).
+Les profils **sans photos complètes** sont sélectionnables ; repli initiales sur la télé.
+Sans sélection : avatars par défaut (initiales **J1**, **J2**…).
+Le hub transmet un `roster` enrichi dans `state.roster` lorsqu'au moins un profil est choisi
 (voir [`API.md`](API.md)).
 
-Le module partagé `window.PlayerFaces` affiche la bonne photo selon le contexte :
+Le module partagé `window.PlayerFaces` affiche la photo du profil ou le placeholder initiales :
 
 | Moment | Photo utilisée |
 |--------|----------------|
-| Onglet joueur | `idle` |
+| Onglet joueur | `idle` (ou initiales) |
 | Gain de pièces (score volant + onglet) | `win` |
 | Perte de pièces / vol subi | `lose` |
 | Podium — 1er | `win` |
@@ -43,10 +45,7 @@ Le module partagé `window.PlayerFaces` affiche la bonne photo selon le contexte
 Les visages sont affichés en grand sur la télé : score volant en taille `lg`, podium
 en `xl`/`xxl`. À l'affichage du podium, une **pluie de têtes** du vainqueur
 (`PlayerFaces.rainHeads`, variante `win`) fait tomber la photo de victoire en cascade
-(ou le cutout neutre si variante `idle`). En cas d'**égalité**, la pluie est désactivée.
-
-Sans roster, le jeu retombe sur les libellés « Joueur N » sans photo (et la pluie de
-têtes est désactivée).
+(ou le cutout / initiales si pas de photo). En cas d'**égalité**, la pluie est désactivée.
 
 ### Déroulement
 
@@ -68,8 +67,9 @@ têtes est désactivée).
 | `neutral` | 0 | — |
 | `knife` | Mini-jeu Couteau (rejeu) | 🔪 |
 | `thief` | Mini-jeu Voleur | 🦹 |
+| `golden` | Mini-jeu Panier d'Or (rejeu) | 🏆 |
 
-**Probabilités approximatives** (génération aléatoire par case) : pièce 50 %, bombe 22 %, neutre 13 %, couteau 7,5 %, voleur 7,5 %. Les pièces/bombes/neutres sont nettement plus fréquents que les cases spéciales.
+**Probabilités approximatives** (génération aléatoire par case) : pièce 47 %, bombe 22 %, neutre 11 %, couteau 7,5 %, voleur 7,5 %, or 5 %. Les pièces/bombes/neutres sont nettement plus fréquents que les cases spéciales.
 
 Les largeurs des cases et leur répartition sont **aléatoires** à chaque tour.
 
@@ -85,7 +85,15 @@ Les largeurs des cases et leur répartition sont **aléatoires** à chaque tour.
 
 **Transition plateau** : au nouveau tour (`BOARD_READY`), les cases et clous actuels défilent vers la droite ; le nouveau plateau entre en glissant depuis la gauche (effet bandeau). La balle disparaît dès l'atterrissage ou au changement de tour.
 
-### Mini-jeux Couteau et Voleur
+### Indicateur LED colonne (zone de lancement)
+
+Chaque colonne du haut (zone ESP32, index `0`–`6`) affiche une **pastille LED** (`.drop-col__led`).
+
+- Au lancer : la colonne détectée (`entryCol`) **clignote** pendant toute la chute.
+- À l'atterrissage : 2–3 pulses rapides confirment la colonne visée, puis extinction.
+- Même logique visuelle sur la rangée mini-jeu (colonnes `1`–`7`).
+
+### Mini-jeux Couteau, Voleur et Panier d'Or
 
 Quand la balle atterrit sur une case **couteau** ou **voleur** :
 
@@ -102,7 +110,20 @@ Quand la balle atterrit sur une case **couteau** ou **voleur** :
    - **Voleur** : la victime **perd** N et le lanceur **gagne exactement N**.
 8. Le tour passe ensuite normalement au joueur suivant sur le **même plateau Plinko** (pas de second lancer principal, pas de nouveau plateau avant la fin du tour).
 
-Le mode feu **ne s'applique pas** aux cases couteau/voleur.
+Le mode feu **ne s'applique pas** aux cases couteau/voleur/or.
+
+### Mini-jeu Panier d'Or
+
+Quand la balle atterrit sur une case **or** (`golden`) :
+
+> Contrairement au couteau/voleur, le mini-jeu **n'est jamais annulé** (pas de victime requise).
+
+1. Même séquence d'intro que les autres mini-jeux (FX atterrissage, pause, bannière).
+2. Overlay **Panier d'Or** : un panier 🏆 glisse sur **toute la largeur** de la grille (colonnes 1 → 7 → 1), aligné sur la rangée du haut, à vitesse constante (~9 s par aller-retour).
+3. Le montant affiché sur le panier est tiré une fois à l'armement : **50 à 100 pièces** (entier).
+4. Le mouvement démarre à l'armement serveur (`MINIGAME_START`, `movementStartedAt`) — le client synchronise l'animation sur ce timestamp.
+5. Le joueur **relance** via l'ESP32 : si la colonne tirée = colonne du panier **à cet instant**, il gagne le montant affiché ; sinon raté (0 pièce).
+6. Le tour passe au joueur suivant sur le même plateau.
 
 ## Layout télé (alignement physique)
 
@@ -118,6 +139,7 @@ Le mode feu **ne s'applique pas** aux cases couteau/voleur.
 | `playing` | En attente du lancer | acceptés |
 | `minigame_knife` | Mini-jeu Couteau — viser une colonne | acceptés (après armement) |
 | `minigame_thief` | Mini-jeu Voleur — viser une colonne | acceptés (après armement) |
+| `minigame_golden` | Mini-jeu Panier d'Or — viser le panier mobile | acceptés (après armement) |
 | `resolving` | Résultat en cours (chute, FX, changement de tour) | refusés (`RESOLVING`) |
 | `board_transition` | Nouveau plateau en glissement (~2,5 s) | refusés (`BOARD_TRANSITION`) |
 | `round_summary` | Fin d'un tour (~4 s) | refusés (`ROUND_SUMMARY`) |
@@ -125,7 +147,7 @@ Le mode feu **ne s'applique pas** aux cases couteau/voleur.
 
 Après une chute normale : le serveur attend `RESOLVE_MS` (6500 ms) avant `TURN_CHANGE` / `ROUND_END` / `GAME_OVER`. Ce délai couvre la chute, les FX (×2 feu, score volant) et la pause résultat côté télé.
 
-Après une case couteau/voleur : la phase reste `resolving` pendant la chute et les intros client ; le mini-jeu n'est **armé** qu'après `MINIGAME_ARM_MS` (5500 ms), ce qui empêche un second lancer pendant l'animation de la balle précédente.
+Après une case couteau/voleur/or : la phase reste `resolving` pendant la chute et les intros client ; le mini-jeu n'est **armé** qu'après `MINIGAME_ARM_MS` (5500 ms), ce qui empêche un second lancer pendant l'animation de la balle précédente.
 
 Après un mini-jeu : `MINIGAME_RESOLVE_MS` (5500 ms) après `MINIGAME_RESULT`.
 
@@ -142,6 +164,8 @@ Au nouveau tour : phase `board_transition` pendant `BOARD_TRANSITION_MS` (2500 m
 | `MINIGAME_ARM_MS` | 5500 | `server/index.js` |
 | `MINIGAME_RESOLVE_MS` | 5500 | `server/index.js` |
 | `MINIGAME_PERCENTS` | 5, 10, 15, 20, 25 (%) | `shared/modules/plinko/minigame.js` |
+| `GOLDEN_BASKET_MIN` / `MAX` | 50 / 100 pièces | `shared/modules/plinko/minigame.js` |
+| `GOLDEN_BASKET_PERIOD_MS` | 9000 (aller-retour 0→6→0) | `shared/modules/plinko/minigame.js` |
 | `FIRE_STREAK_MIN` | 3 | `shared/modules/plinko/simulator.js` |
 | `ROUND_SUMMARY_MS` | 4000 | `server/index.js` |
 | `BOARD_TRANSITION_MS` | 2500 | `server/index.js` |
@@ -152,7 +176,7 @@ Au nouveau tour : phase `board_transition` pendant `BOARD_TRANSITION_MS` (2500 m
 | Module | Rôle |
 |--------|------|
 | `shared/modules/plinko` | Génération plateau + simulation de chute + layout mini-jeu |
-| `shared/modules/plinko/minigame` | Layout 7 colonnes (trous/joueurs) + tirage % (5 / 10 / 15 / 20 / 25) |
+| `shared/modules/plinko/minigame` | Layout 7 colonnes (trous/joueurs) + tirage % (5 / 10 / 15 / 20 / 25) + panier d'or (`getGoldenColAt`, `rollGoldenBasketCoins`) |
 | `shared/modules/turn-manager` | Alternance des joueurs |
 | `shared/modules/scoring` | Scores en pièces (`addPoints`) |
 

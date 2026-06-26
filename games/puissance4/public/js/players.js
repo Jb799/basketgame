@@ -32,11 +32,12 @@ window.Players = (function () {
     els.p2Badge.insertBefore(els.p2Name, els.p2Token);
 
     setActiveTurn(1);
+    applyRoster();
   }
 
-  /** Visages des profils choisis (appelé après réception du roster). */
+  /** Visages des profils (ou initiales par défaut). */
   function applyRoster() {
-    if (!window.PlayerFaces || !PlayerFaces.hasRoster()) return;
+    if (!window.PlayerFaces) return;
     els.p1Name.textContent = PlayerFaces.getPseudo(1);
     els.p2Name.textContent = PlayerFaces.getPseudo(2);
     setTokenFace(1, 'idle');
@@ -45,15 +46,26 @@ window.Players = (function () {
   }
 
   function setTokenFace(slot, variant) {
-    if (!window.PlayerFaces || !PlayerFaces.hasRoster()) return;
     const tokenEl = slot === 1 ? els.p1Token : els.p2Token;
+    if (!tokenEl || !window.PlayerFaces) return;
+
+    tokenEl.innerHTML = '';
+    tokenEl.classList.remove('player-badge__token--photo', 'player-badge__token--face');
+    tokenEl.style.backgroundImage = '';
+
     const url = PlayerFaces.getUrl(slot, variant);
-    if (!tokenEl || !url) return;
-    tokenEl.style.backgroundImage = `url("${url}")`;
-    tokenEl.style.backgroundSize = 'cover';
-    tokenEl.style.backgroundPosition = 'center';
-    tokenEl.classList.add('player-badge__token--photo');
-    tokenEl.classList.toggle('player-badge__token--lose', variant === 'lose');
+    if (url) {
+      tokenEl.style.backgroundImage = `url("${url}")`;
+      tokenEl.style.backgroundSize = 'cover';
+      tokenEl.style.backgroundPosition = 'center';
+      tokenEl.classList.add('player-badge__token--photo');
+    } else {
+      const face = PlayerFaces.createFace({ slot, variant, size: 'sm' });
+      face.classList.add('player-badge__token-face');
+      tokenEl.appendChild(face);
+      tokenEl.classList.add('player-badge__token--face');
+    }
+    tokenEl.classList.toggle('player-badge__token--lose', variant === 'lose' && Boolean(url));
   }
 
   /** Fin de manche : visage de fierté pour le gagnant, de défaite pour l'autre. */
@@ -65,9 +77,7 @@ window.Players = (function () {
   }
 
   function playerDisplayName(player) {
-    if (window.PlayerFaces && PlayerFaces.hasRoster()) {
-      return PlayerFaces.getPseudo(player);
-    }
+    if (window.PlayerFaces) return PlayerFaces.getPseudo(player);
     return PLAYER_LABELS[player] || `Joueur ${player}`;
   }
 

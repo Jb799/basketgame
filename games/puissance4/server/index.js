@@ -9,12 +9,29 @@
 
 const path = require('path');
 const { createGameServer } = require('../../../shared/server/createGameServer');
+const { reportFromRoster } = require('../../../shared/server/reportPlayerStats');
 const { Game } = require('./game');
 
 const PORT = process.env.GAME_PORT || process.env.PORT || 3101;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const game = new Game();
+
+function recordPuissance4SeriesStats(seriesWinner) {
+  if (!game.roster?.length || !seriesWinner) return;
+
+  const w = Number(seriesWinner);
+  reportFromRoster('puissance4', game.roster, {
+    1: {
+      result: w === 1 ? 'win' : 'loss',
+      meta: { seriesScore: game.scores[1] },
+    },
+    2: {
+      result: w === 2 ? 'win' : 'loss',
+      meta: { seriesScore: game.scores[2] },
+    },
+  });
+}
 
 const { listen } = createGameServer({
   name: 'Puissance 4',
@@ -47,6 +64,9 @@ const { listen } = createGameServer({
 
       if (result.gameOver) {
         if (result.winner) {
+          if (result.seriesWinner) {
+            recordPuissance4SeriesStats(result.seriesWinner);
+          }
           broadcast({
             type: 'GAME_OVER',
             col: result.col,

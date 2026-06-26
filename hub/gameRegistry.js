@@ -96,7 +96,10 @@ const ALLOWED_STYLES = new Set(['primary', 'danger', 'ghost']);
 function normalizeController(controller) {
   const startOptions = normalizeStartOptions(controller?.startOptions);
   const requiresPlayerRoster = controller?.requiresPlayerRoster === true;
-  if (!controller?.actions?.length) return { startOptions, actions: [], requiresPlayerRoster };
+  const optionalPlayerRoster = controller?.optionalPlayerRoster === true;
+  if (!controller?.actions?.length) {
+    return { startOptions, actions: [], requiresPlayerRoster, optionalPlayerRoster };
+  }
 
   const actions = [];
   for (const raw of controller.actions) {
@@ -124,7 +127,7 @@ function normalizeController(controller) {
       ...(raw.icon ? { icon: String(raw.icon) } : {}),
     });
   }
-  return { startOptions, actions, requiresPlayerRoster };
+  return { startOptions, actions, requiresPlayerRoster, optionalPlayerRoster };
 }
 
 /**
@@ -153,21 +156,37 @@ function validateStartParams(game, body = {}) {
   }
 
   // Jeux à roster : valide la forme de la liste d'ids (longueur, unicité).
-  if (game.controller?.requiresPlayerRoster) {
+  const wantsRoster = game.controller?.requiresPlayerRoster || game.controller?.optionalPlayerRoster;
+  if (wantsRoster) {
     const expected = Number.isInteger(params.playerCount)
       ? params.playerCount
       : game.players?.min || 2;
     const roster = body.roster;
-    if (!Array.isArray(roster) || roster.length !== expected) {
-      return { valid: false, error: 'INVALID_ROSTER' };
+
+    if (game.controller?.requiresPlayerRoster) {
+      if (!Array.isArray(roster) || roster.length !== expected) {
+        return { valid: false, error: 'INVALID_ROSTER' };
+      }
+      if (roster.some((id) => typeof id !== 'string' || !id)) {
+        return { valid: false, error: 'INVALID_ROSTER' };
+      }
+      if (new Set(roster).size !== roster.length) {
+        return { valid: false, error: 'DUPLICATE_ROSTER' };
+      }
+      params.roster = roster;
+    } else if (roster != null) {
+      if (!Array.isArray(roster) || roster.length !== expected) {
+        return { valid: false, error: 'INVALID_ROSTER' };
+      }
+      const filled = roster.filter((id) => id);
+      if (filled.some((id) => typeof id !== 'string')) {
+        return { valid: false, error: 'INVALID_ROSTER' };
+      }
+      if (new Set(filled).size !== filled.length) {
+        return { valid: false, error: 'DUPLICATE_ROSTER' };
+      }
+      if (filled.length > 0) params.roster = roster;
     }
-    if (roster.some((id) => typeof id !== 'string' || !id)) {
-      return { valid: false, error: 'INVALID_ROSTER' };
-    }
-    if (new Set(roster).size !== roster.length) {
-      return { valid: false, error: 'DUPLICATE_ROSTER' };
-    }
-    params.roster = roster;
   }
 
   return { valid: true, params };

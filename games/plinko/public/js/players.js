@@ -38,7 +38,7 @@ window.Players = (function () {
       badge.className = 'player-tab__badge';
       badge.textContent = 'À vous';
 
-      if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+      if (window.PlayerFaces) {
         const face = PlayerFaces.createFace({ slot: p, variant: 'idle', size: 'sm' });
         face.classList.add('player-tab__face');
         face.id = `face-p${p}`;
@@ -140,12 +140,17 @@ window.Players = (function () {
 
   /** Change la variante du visage d'un onglet (win/lose), retour à idle après revertMs. */
   function setFaceVariant(player, variant, revertMs) {
-    if (!window.PlayerFaces || !PlayerFaces.hasRoster()) return;
+    if (!window.PlayerFaces) return;
     const el = document.getElementById(`face-p${player}`);
     if (!el) return;
     const url = PlayerFaces.getUrl(player, variant);
     const img = el.querySelector('.player-face__img');
-    if (url && img) img.src = url;
+    if (url && img) {
+      img.src = url;
+    } else if (!url) {
+      const initialsEl = el.querySelector('.player-face__initials');
+      if (initialsEl) initialsEl.textContent = PlayerFaces.initials(player);
+    }
     el.classList.toggle('player-face--win', variant === 'win');
     el.classList.toggle('player-face--lose', variant === 'lose');
     if (revertMs) {

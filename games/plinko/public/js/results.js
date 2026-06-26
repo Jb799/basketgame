@@ -37,7 +37,7 @@ window.Results = (function () {
 
     if (!isTie && Sounds.victory) Sounds.victory(1);
 
-    if (!isTie && window.PlayerFaces && PlayerFaces.hasRoster() && winners.length) {
+    if (!isTie && window.PlayerFaces && winners.length) {
       setTimeout(() => PlayerFaces.rainHeads(winners, { count: 16, variant: 'win' }), 500);
     }
   }
@@ -74,7 +74,7 @@ window.Results = (function () {
       medal.className = 'podium-place__medal';
       medal.textContent = '🤝';
 
-      if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+      if (window.PlayerFaces) {
         const face = PlayerFaces.createFace({ slot: entry.player, variant: 'idle', size: 'xl' });
         face.classList.add('podium-place__face');
         place.appendChild(face);
@@ -122,7 +122,7 @@ window.Results = (function () {
       medal.className = 'podium-place__medal';
       medal.textContent = MEDALS[placeIndex] || '🏅';
 
-      if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+      if (window.PlayerFaces) {
         const variant = placeIndex === 0 ? 'win' : (entry.player === lastPlayer ? 'lose' : 'idle');
         const face = PlayerFaces.createFace({ slot: entry.player, variant, size: 'xl' });
         face.classList.add('podium-place__face');

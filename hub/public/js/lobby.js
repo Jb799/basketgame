@@ -55,6 +55,22 @@
     const esp = state.esp32 || {};
     const ready = isEspReady();
 
+    if (esp.simulated && ready) {
+      espBanner.hidden = false;
+      espBanner.classList.remove('is-calibrating');
+      espBanner.classList.add('is-simulated');
+      espBannerIcon.textContent = '🧪';
+      espBannerLabel.textContent = 'Mode simulation';
+      espBannerText.innerHTML =
+        'ESP32 non requis — lancez un jeu et utilisez <strong>Simuler la balle</strong> ou le ' +
+        '<a href="/sensors">dashboard capteurs</a>.';
+      espGamesHint.hidden = true;
+      grid.classList.remove('is-locked');
+      if (simulateTab) simulateTab.hidden = false;
+      return;
+    }
+
+    espBanner.classList.remove('is-simulated');
     espBanner.hidden = ready;
     espGamesHint.hidden = ready;
     grid.classList.toggle('is-locked', !ready);
@@ -104,8 +120,16 @@
     return game?.controller?.requiresPlayerRoster === true;
   }
 
+  function optionalRoster(game) {
+    return game?.controller?.optionalPlayerRoster === true;
+  }
+
+  function showsRosterPicker(game) {
+    return requiresRoster(game) || optionalRoster(game);
+  }
+
   function needsConfig(game) {
-    return getStartOptions(game).length > 0 || requiresRoster(game);
+    return getStartOptions(game).length > 0 || showsRosterPicker(game);
   }
 
   function getRequiredCount(game) {
@@ -128,11 +152,17 @@
     rosterSlots = next;
   }
 
+  function playerInitials(pseudo, slotIndex) {
+    const base = (pseudo || '').trim();
+    if (base) return base.slice(0, 2).toUpperCase();
+    return `J${slotIndex + 1}`;
+  }
+
   async function fetchPlayers() {
     try {
       const res = await fetch('/api/players');
       const data = await res.json();
-      availablePlayers = (data.players || []).filter((p) => p.hasAllPhotos);
+      availablePlayers = data.players || [];
     } catch {
       availablePlayers = [];
     }
@@ -150,7 +180,7 @@
     configuringGameId = game.id;
     startOptionValues = initStartOptionValues(game);
     rosterSlots = [];
-    if (requiresRoster(game)) {
+    if (showsRosterPicker(game)) {
       syncRosterSlots(game);
       await fetchPlayers();
     }
@@ -202,15 +232,27 @@
 
     const heading = document.createElement('p');
     heading.className = 'roster-picker__title';
-    heading.textContent = 'Joueurs';
+    heading.textContent = optionalRoster(game) && !requiresRoster(game)
+      ? 'Joueurs (optionnel)'
+      : 'Joueurs';
     wrap.appendChild(heading);
+
+    if (optionalRoster(game) && !requiresRoster(game)) {
+      const hint = document.createElement('p');
+      hint.className = 'roster-picker__hint';
+      hint.textContent = 'Sans sélection : avatars par défaut (initiales J1, J2…).';
+      wrap.appendChild(hint);
+    }
 
     if (availablePlayers.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'roster-picker__empty';
-      empty.innerHTML = 'Aucun joueur avec 3 photos. <a href="/players">Créer un joueur</a>';
+      if (requiresRoster(game)) {
+        empty.innerHTML = 'Aucun joueur enregistré. <a href="/players">Créer un joueur</a>';
+      } else {
+        empty.innerHTML = 'Aucun profil enregistré — avatars par défaut. <a href="/players">Créer un joueur</a>';
+      }
       wrap.appendChild(empty);
-      return wrap;
     }
 
     for (let i = 0; i < count; i++) {
@@ -225,7 +267,9 @@
       if (selected?.photoUrls?.idle) {
         avatar.innerHTML = `<img src="${selected.photoUrls.idle}" alt="" />`;
       } else {
-        avatar.textContent = String(i + 1);
+        avatar.textContent = selected
+          ? playerInitials(selected.pseudo, i)
+          : `J${i + 1}`;
         avatar.classList.add('is-placeholder');
       }
 
@@ -234,14 +278,19 @@
 
       const blank = document.createElement('option');
       blank.value = '';
-      blank.textContent = `Joueur ${i + 1} — choisir…`;
+      blank.textContent = optionalRoster(game) && !requiresRoster(game)
+        ? `Joueur ${i + 1} — par défaut`
+        : `Joueur ${i + 1} — choisir…`;
       select.appendChild(blank);
 
       for (const p of availablePlayers) {
         const usedElsewhere = rosterSlots.includes(p.id) && rosterSlots[i] !== p.id;
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = p.pseudo + (usedElsewhere ? ' (déjà choisi)' : '');
+        let label = p.pseudo;
+        if (!p.hasAllPhotos) label += ' (photos incomplètes)';
+        if (usedElsewhere) label += ' (déjà choisi)';
+        opt.textContent = label;
         opt.disabled = usedElsewhere;
         if (p.id === selectedId) opt.selected = true;
         select.appendChild(opt);
@@ -262,7 +311,7 @@
 
   function confirmStartConfig(game) {
     const params = { ...startOptionValues };
-    if (requiresRoster(game)) {
+    if (showsRosterPicker(game) && (requiresRoster(game) || rosterSlots.some((id) => id))) {
       params.roster = [...rosterSlots];
     }
     startGame(game.id, params);
@@ -422,7 +471,7 @@
           btnMinus.addEventListener('click', () => {
             if (startOptionValues[opt.id] > opt.min) {
               startOptionValues[opt.id]--;
-              if (requiresRoster(game)) syncRosterSlots(game);
+              if (showsRosterPicker(game)) syncRosterSlots(game);
               render();
             }
           });
@@ -439,7 +488,7 @@
           btnPlus.addEventListener('click', () => {
             if (startOptionValues[opt.id] < opt.max) {
               startOptionValues[opt.id]++;
-              if (requiresRoster(game)) syncRosterSlots(game);
+              if (showsRosterPicker(game)) syncRosterSlots(game);
               render();
             }
           });
@@ -452,7 +501,7 @@
           panel.appendChild(row);
         }
 
-        if (requiresRoster(game)) {
+        if (showsRosterPicker(game)) {
           panel.appendChild(renderRosterPicker(game));
         }
 

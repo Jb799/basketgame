@@ -1,9 +1,13 @@
 /**
- * minigame — Layout et tirage aléatoire pour mini-jeux Couteau / Voleur.
+ * minigame — Layout et tirage aléatoire pour mini-jeux Couteau / Voleur / Panier d'Or.
  * Module pur : pas de scoring ni I/O réseau.
  */
 
 const { createRng } = require('./rng');
+
+const GOLDEN_BASKET_MIN = 50;
+const GOLDEN_BASKET_MAX = 100;
+const GOLDEN_BASKET_PERIOD_MS = 9000;
 
 const MINIGAME_PERCENTS = [5, 10, 15, 20, 25];
 const MIN_PERCENT = MINIGAME_PERCENTS[0];
@@ -92,14 +96,61 @@ function resolveMinigameColumn(columns, col) {
   return null;
 }
 
+/**
+ * @param {() => number} rng
+ * @returns {number} 50–100 pièces (entier)
+ */
+function rollGoldenBasketCoins(rng) {
+  return GOLDEN_BASKET_MIN + Math.floor(rng() * (GOLDEN_BASKET_MAX - GOLDEN_BASKET_MIN + 1));
+}
+
+/**
+ * Colonne du panier d'or à un instant donné (ping-pong fluide, arrondi à la colonne la plus proche).
+ * @param {number} elapsedMs
+ * @param {number} [periodMs=GOLDEN_BASKET_PERIOD_MS]
+ * @param {number} [colCount=7]
+ * @returns {number} index colonne 0 … colCount-1
+ */
+function getGoldenColAt(elapsedMs, periodMs = GOLDEN_BASKET_PERIOD_MS, colCount = 7) {
+  const maxCol = colCount - 1;
+  if (maxCol <= 0) return 0;
+
+  const cycle = ((elapsedMs % periodMs) + periodMs) % periodMs;
+  const half = periodMs / 2;
+  const t = cycle / half;
+  const pos = t <= 1 ? t * maxCol : (2 - t) * maxCol;
+  return Math.round(pos);
+}
+
+/**
+ * @param {number} seed
+ * @param {number} [columnCount=7]
+ * @returns {{ seed: number, coinReward: number, periodMs: number, columnCount: number }}
+ */
+function generateGoldenBasketConfig(seed, columnCount = 7) {
+  const rng = createRng(seed);
+  return {
+    seed,
+    coinReward: rollGoldenBasketCoins(rng),
+    periodMs: GOLDEN_BASKET_PERIOD_MS,
+    columnCount,
+  };
+}
+
 module.exports = {
+  GOLDEN_BASKET_MIN,
+  GOLDEN_BASKET_MAX,
+  GOLDEN_BASKET_PERIOD_MS,
   MINIGAME_PERCENTS,
   MINIGAME_AMOUNTS,
   MIN_PERCENT,
   MAX_PERCENT,
   generateMinigameLayout,
+  generateGoldenBasketConfig,
   rollMinigamePercent,
   rollMinigameAmount,
+  rollGoldenBasketCoins,
+  getGoldenColAt,
   resolveMinigameCoins,
   resolveMinigameColumn,
 };

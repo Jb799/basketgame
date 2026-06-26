@@ -21,6 +21,14 @@
 
   initLanes();
 
+  if (window.StructureImpact) {
+    StructureImpact.init({
+      root: wait,
+      lanesRoot: lanesEl,
+      showBanner: true,
+    });
+  }
+
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   WSClient.connect(`${wsProto}://${location.host}`, {
     onOpen: () => {
@@ -34,6 +42,9 @@
     onMessage: (msg) => {
       if (msg.type === 'HUB_STATE') applyState(msg);
       if (msg.type === 'HUB_TRIGGER' && isIdle) dropBall(msg.column);
+      if (msg.type === 'HUB_IMPACT' && isIdle && window.StructureImpact) {
+        StructureImpact.play(msg);
+      }
     },
   });
 

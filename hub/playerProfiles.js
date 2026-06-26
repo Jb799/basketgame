@@ -39,29 +39,55 @@ function withPhotoUrls(profile) {
     ...profile,
     photoUrls: urls,
     cutoutUrl: profile.hasCutout ? cutoutUrl(profile.id) : null,
+    statistics: profile.statistics || store.getStatistics(profile.id),
+  };
+}
+
+function isLocalRequest(req) {
+  const ip = req.ip || req.socket?.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function buildPhotoUrls(profile) {
+  const photos = {};
+  for (const v of PLAYER_PHOTO_VARIANTS) {
+    photos[v] = profile.photos[v] ? photoUrl(profile.id, v) : null;
+  }
+  return photos;
+}
+
+function rosterEntryFromProfile(profile, slot) {
+  return {
+    slot,
+    profileId: profile.id,
+    pseudo: profile.pseudo,
+    photos: buildPhotoUrls(profile),
+    cutoutUrl: profile.hasCutout ? cutoutUrl(profile.id) : null,
   };
 }
 
 /**
  * Résout une liste ordonnée d'ids en roster enrichi pour le jeu.
- * @param {string[]} profileIds
+ * @param {string[]} profileIds — index 0 = slot 1 ; chaînes vides ignorées si allowEmptySlots
+ * @param {{ allowEmptySlots?: boolean }} [opts]
  * @returns {{ valid: true, roster: object[] } | { valid: false, error: string }}
  */
-function buildEnrichedRoster(profileIds) {
-  const resolved = store.resolveRoster(profileIds);
+function buildEnrichedRoster(profileIds, opts = {}) {
+  if (!Array.isArray(profileIds)) {
+    return { valid: false, error: 'INVALID_ROSTER' };
+  }
+
+  if (opts.allowEmptySlots) {
+    const resolved = store.resolveRosterOptional(profileIds);
+    if (!resolved.valid) return resolved;
+    const roster = resolved.profiles.map(({ profile, slot }) => rosterEntryFromProfile(profile, slot));
+    return { valid: true, roster };
+  }
+
+  const resolved = store.resolveRoster(profileIds, { requireAllPhotos: true });
   if (!resolved.valid) return resolved;
 
-  const roster = resolved.profiles.map((profile, index) => ({
-    slot: index + 1,
-    profileId: profile.id,
-    pseudo: profile.pseudo,
-    photos: {
-      idle: photoUrl(profile.id, 'idle'),
-      win: photoUrl(profile.id, 'win'),
-      lose: photoUrl(profile.id, 'lose'),
-    },
-    cutoutUrl: profile.hasCutout ? cutoutUrl(profile.id) : null,
-  }));
+  const roster = resolved.profiles.map((profile, index) => rosterEntryFromProfile(profile, index + 1));
   return { valid: true, roster };
 }
 
@@ -72,6 +98,40 @@ function createPlayersRouter() {
 
   router.get('/', (req, res) => {
     res.json({ success: true, players: store.list().map(withPhotoUrls) });
+  });
+
+  router.post('/record-game', jsonBody, (req, res) => {
+    if (!isLocalRequest(req)) {
+      return res.status(403).json({ success: false, error: 'LOCALHOST_ONLY' });
+    }
+
+    const gameId = String(req.body?.gameId || '').trim();
+    const results = req.body?.results;
+    if (!gameId || !Array.isArray(results) || results.length === 0) {
+      return res.status(400).json({ success: false, error: 'INVALID_PAYLOAD' });
+    }
+
+    const entries = [];
+    for (const row of results) {
+      if (!row?.profileId || !row?.result) continue;
+      entries.push({
+        profileId: row.profileId,
+        gameId,
+        result: row.result,
+        meta: row.meta,
+      });
+    }
+
+    if (entries.length === 0) {
+      return res.status(400).json({ success: false, error: 'NO_VALID_RESULTS' });
+    }
+
+    try {
+      const updated = store.recordGameResults(entries);
+      res.json({ success: true, updated });
+    } catch (e) {
+      res.status(400).json({ success: false, error: e.message });
+    }
   });
 
   router.post('/', jsonBody, (req, res) => {

@@ -33,6 +33,40 @@
   background: rgba(255, 215, 0, 0.08);
 }
 
+.drop-col__led {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(10px, 1.6vw, 18px);
+  height: clamp(10px, 1.6vw, 18px);
+  border-radius: 50%;
+  background: rgba(60, 60, 60, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.drop-col.is-led-on .drop-col__led,
+.drop-col.is-led-blink .drop-col__led,
+.drop-col.is-led-confirm .drop-col__led {
+  background: var(--gold);
+  border-color: #fff8dc;
+  box-shadow:
+    0 0 12px var(--gold-glow),
+    0 0 24px rgba(255, 180, 0, 0.55),
+    inset 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.drop-col.is-led-blink .drop-col__led {
+  animation: dropColLedBlink 0.85s ease-in-out infinite;
+}
+
+.drop-col.is-led-confirm .drop-col__led {
+  animation: dropColLedConfirm 0.2s ease-in-out 3;
+}
+
 .drop-col.is-active::after {
   content: '';
   position: absolute;
@@ -241,8 +275,15 @@
   border-color: rgba(180, 120, 220, 0.4);
 }
 
+.slot--golden {
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.45), rgba(180, 130, 0, 0.3));
+  border-color: rgba(255, 215, 0, 0.65);
+  animation: goldenSlotPulse 1.8s ease-in-out infinite;
+}
+
 .slot--knife .slot__value,
-.slot--thief .slot__value {
+.slot--thief .slot__value,
+.slot--golden .slot__value {
   font-size: clamp(0.45rem, 1.1vw, 0.7rem);
   color: rgba(255, 255, 255, 0.9);
 }
@@ -263,8 +304,18 @@
   font-weight: 700;
 }
 
+.slot--golden .slot__value {
+  color: var(--gold);
+  text-shadow: 0 0 8px var(--gold-glow);
+}
+
 .slot--coin .slot__value {
   color: var(--gold);
+}
+
+@keyframes goldenSlotPulse {
+  0%, 100% { box-shadow: inset 0 0 12px rgba(255, 215, 0, 0.25); }
+  50% { box-shadow: inset 0 0 22px rgba(255, 215, 0, 0.55); }
 }
 
 .slot--bomb .slot__value {

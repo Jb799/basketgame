@@ -25,6 +25,10 @@ window.App = (function () {
     const canvas = document.getElementById('confetti-canvas');
     if (canvas && window.Confetti) Confetti.create(canvas);
 
+    if (window.StructureImpact) {
+      StructureImpact.init({ root: document.getElementById('plinko-layout') });
+    }
+
     connect();
   }
 
@@ -74,16 +78,28 @@ window.App = (function () {
     }
   }
 
+  function minigamePhaseForKind(kind) {
+    if (kind === 'knife') return 'minigame_knife';
+    if (kind === 'thief') return 'minigame_thief';
+    if (kind === 'golden') return 'minigame_golden';
+    return 'playing';
+  }
+
   function resolveMinigameStart(fallback) {
     if (pendingMinigameStart) return pendingMinigameStart;
     if (fallback?.minigameStart) return fallback.minigameStart;
     if (state?.minigame) {
+      const mg = state.minigame;
       return {
         type: 'MINIGAME_START',
-        kind: state.minigame.kind,
-        activePlayer: state.minigame.activePlayer,
-        columns: state.minigame.columns,
-        seed: state.minigame.seed,
+        kind: mg.kind,
+        activePlayer: mg.activePlayer,
+        columns: mg.columns,
+        seed: mg.seed,
+        coinReward: mg.coinReward,
+        periodMs: mg.periodMs,
+        columnCount: mg.columnCount,
+        movementStartedAt: mg.movementStartedAt,
         round: state.round,
       };
     }
@@ -111,6 +127,9 @@ window.App = (function () {
         break;
       case 'MINIGAME_START':
         pendingMinigameStart = msg;
+        if (minigameActive && msg.kind === 'golden' && window.Minigame?.updateGoldenMovement) {
+          Minigame.updateGoldenMovement(msg);
+        }
         break;
       case 'MINIGAME_RESULT':
         await handleMinigameResult(msg);
@@ -132,6 +151,9 @@ window.App = (function () {
         Results.hide();
         applyFullState(msg.state);
         break;
+      case 'STRUCTURE_IMPACT':
+        if (window.StructureImpact) StructureImpact.play(msg);
+        break;
       default:
         break;
     }
@@ -143,13 +165,23 @@ window.App = (function () {
     pendingMinigameStart = null;
     minigameActive = true;
     if (state) {
-      state.phase = msg.kind === 'knife' ? 'minigame_knife' : 'minigame_thief';
-      state.minigame = {
-        kind: msg.kind,
-        activePlayer: msg.activePlayer,
-        columns: msg.columns,
-        seed: msg.seed,
-      };
+      state.phase = minigamePhaseForKind(msg.kind);
+      state.minigame = msg.kind === 'golden'
+        ? {
+            kind: msg.kind,
+            activePlayer: msg.activePlayer,
+            seed: msg.seed,
+            coinReward: msg.coinReward,
+            periodMs: msg.periodMs,
+            columnCount: msg.columnCount,
+            movementStartedAt: msg.movementStartedAt,
+          }
+        : {
+            kind: msg.kind,
+            activePlayer: msg.activePlayer,
+            columns: msg.columns,
+            seed: msg.seed,
+          };
     }
     await Minigame.showStart(msg);
   }
@@ -235,7 +267,7 @@ window.App = (function () {
 
     Players.setup(s.players, s.scores, s.currentPlayer);
 
-    if (s.minigame && (s.phase === 'minigame_knife' || s.phase === 'minigame_thief')) {
+    if (s.minigame && (s.phase === 'minigame_knife' || s.phase === 'minigame_thief' || s.phase === 'minigame_golden')) {
       minigameActive = true;
       Minigame.restoreFromState(s.minigame);
     } else {
@@ -286,9 +318,7 @@ window.App = (function () {
 
     const droppingPlayer = msg.droppingPlayer || msg.player;
     const minigameSkipped = Boolean(msg.minigameSkipped);
-    const triggersMinigame = !minigameSkipped && (
-      msg.triggersMinigame || msg.slot?.type === 'knife' || msg.slot?.type === 'thief'
-    );
+    const triggersMinigame = !minigameSkipped && Boolean(msg.triggersMinigame);
 
     if (triggersMinigame && msg.minigameStart) {
       pendingMinigameStart = msg.minigameStart;
@@ -296,7 +326,7 @@ window.App = (function () {
 
     Players.setDropping(droppingPlayer);
     UI.setHud(msg.round, state?.totalRounds || 5, playerLabel(droppingPlayer), 'Chute en cours…');
-    Board.highlightColumn(msg.entryCol);
+    Board.setColumnLed(msg.entryCol, 'blink');
 
     const pixelPath = Board.pathToPixels(msg.path);
     const landedOnFire = await Ball.animatePath(pixelPath);
@@ -327,13 +357,13 @@ window.App = (function () {
     }
 
     Players.clearDropping();
-    Board.clearColumnHighlight();
+    await Board.confirmColumnLed(msg.entryCol);
 
     if (minigameSkipped) {
       UI.setHud(
         msg.round,
         state?.totalRounds || 5,
-        playerLabelText(droppingPlayer),
+        playerLabel(droppingPlayer),
         'Personne n\'a de pièces — mini-jeu annulé'
       );
       await UI.showResultPause(0, 0, { onFireAtLand: false });
@@ -345,7 +375,7 @@ window.App = (function () {
 
     if (triggersMinigame) {
       const kind = msg.minigameKind || msg.slot?.type;
-      if (state) state.phase = kind === 'knife' ? 'minigame_knife' : 'minigame_thief';
+      if (state) state.phase = minigamePhaseForKind(kind);
 
       await UI.showMinigameLandPause(kind, droppingPlayer);
       await UI.showMinigameIntro(kind, droppingPlayer);
@@ -375,6 +405,7 @@ window.App = (function () {
       game_over: 'Terminé',
       minigame_knife: 'Mini-jeu Couteau — visez !',
       minigame_thief: 'Mini-jeu Voleur — visez !',
+      minigame_golden: 'Panier d\'Or — visez !',
     };
     return labels[phase] || '';
   }

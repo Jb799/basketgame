@@ -59,6 +59,23 @@ Tous les messages ont la forme `{ "type": "...", ...payload }`.
 | `DRAW` | Grille pleine sans gagnant | `col`, `row`, `player`, `board` |
 | `RESET` | Reset manche / scores | `board`, `currentPlayer`, `scores`, `seriesWinner` |
 | `TOKEN_ERROR` | Coup invalide | `error`, `col` |
+| `STRUCTURE_IMPACT` | Impact structure physique (hub → `POST /api/impact`) | `sensors[]`, `drops[]`, `magnitude`, `peakDrop`, `sensorCount`, `timestamp` — **cosmétique uniquement** (`StructureImpact.play`) |
+
+### `STRUCTURE_IMPACT` (cosmétique)
+
+Diffusé par `createGameServer` lorsqu'un impact structure est relayé par le hub. Ne modifie ni le plateau, ni les scores, ni le tour en cours. L'interface appelle `StructureImpact.play(msg)` (shake écran, flash orange, surbrillance des colonnes capteurs, son léger).
+
+```json
+{
+  "type": "STRUCTURE_IMPACT",
+  "sensors": [0, 1, 2, 3],
+  "drops": [52, 48, 61, 45],
+  "magnitude": 52,
+  "peakDrop": 61,
+  "sensorCount": 4,
+  "timestamp": 1719150000123
+}
+```
 
 ### Forme de `state` (INIT / `GET /api/state`)
 

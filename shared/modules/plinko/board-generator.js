@@ -12,8 +12,8 @@ const ZONE_SLOTS = 0.14;
 const SIDE_MARGIN = 0.04;
 const PEGS_PER_ROW = 11;
 const MIN_SLOT_WIDTH = 8;
-const SLOT_TYPES = ['coin', 'bomb', 'neutral', 'knife', 'thief'];
-const SLOT_WEIGHTS = [0.5, 0.22, 0.13, 0.075, 0.075];
+const SLOT_TYPES = ['coin', 'bomb', 'neutral', 'knife', 'thief', 'golden'];
+const SLOT_WEIGHTS = [0.47, 0.22, 0.11, 0.075, 0.075, 0.05];
 const BOMB_SIZES = ['small', 'medium', 'large'];
 const BOMB_SIZE_WEIGHTS = [0.5, 0.35, 0.15];
 
@@ -60,7 +60,7 @@ function generateSlot(rng) {
     return { type, value, width: 0, iconCount: coinIconCount(value), size: null };
   }
 
-  if (type === 'knife' || type === 'thief') {
+  if (type === 'knife' || type === 'thief' || type === 'golden') {
     return { type, value: 0, width: 0, iconCount: 0, size: null };
   }
 

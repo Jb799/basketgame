@@ -28,18 +28,21 @@ err()   { print -P "%F{red}✖%f $*" >&2 }
 MODE="start"
 OPEN_BROWSER=false
 FORCE_INSTALL=false
+SIMULATE=false
 
 for arg in "$@"; do
   case "$arg" in
-    --dev)     MODE="dev" ;;
-    --open)    OPEN_BROWSER=true ;;
-    --install) FORCE_INSTALL=true ;;
+    --dev)      MODE="dev" ;;
+    --simulate) SIMULATE=true ;;
+    --open)     OPEN_BROWSER=true ;;
+    --install)  FORCE_INSTALL=true ;;
     -h|--help)
-      print "Usage: ./start.zsh [--dev] [--open] [--install]"
+      print "Usage: ./start.zsh [--dev] [--simulate] [--open] [--install]"
       print ""
-      print "  --dev      Rechargement auto (npm run dev)"
-      print "  --open     Ouvre le contrôleur et la télé dans Safari/Chrome"
-      print "  --install  Force npm install avant le démarrage"
+      print "  --dev       Rechargement auto (npm run dev)"
+      print "  --simulate  Capteurs simulés — pas d'ESP32 USB requis"
+      print "  --open      Ouvre le contrôleur et la télé dans Safari/Chrome"
+      print "  --install   Force npm install avant le démarrage"
       exit 0
       ;;
     *)
@@ -107,6 +110,10 @@ info "Contrôleur (PC / mobile) :  %Bhttp://${IP}:${PORT_HUB}/%b"
 info "Télé (grand écran)       :  %Bhttp://${IP}:${PORT_HUB}/tv%b"
 info "Capteurs IR (dashboard) :  %Bhttp://${IP}:${PORT_HUB}/sensors%b"
 info "Trigger manuel/simulateur:  POST http://${IP}:${PORT_HUB}/api/trigger?col=N"
+if [[ "$SIMULATE" == true ]]; then
+  warn "Mode simulation — ESP32 non requis (dashboard + bouton Simuler la balle)"
+  info "Impact simulé:            POST http://${IP}:${PORT_HUB}/api/sensors/simulate/impact"
+fi
 print ""
 
 if [[ "$OPEN_BROWSER" == true ]]; then
@@ -120,6 +127,10 @@ print ""
 
 # ─── Démarrage ─────────────────────────────────────────────────────────────────
 trap 'print ""; warn "Arrêt de BasketGame…"; exit 0' INT TERM
+
+if [[ "$SIMULATE" == true ]]; then
+  export SENSOR_SIMULATE=1
+fi
 
 if [[ "$MODE" == "dev" ]]; then
   exec npm run dev

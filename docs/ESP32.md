@@ -51,6 +51,7 @@ Au démarrage (ou sur demande via **Recalibrer** sur `/sensors`) :
 1. **Calibration** (5 s) : mesure des baselines sans balle.
 2. **Seuil par capteur** : `baseline × ratio` — ratio **global** par défaut **55 %** (réglable sur `/sensors`), avec **overrides individuels** possibles par colonne (10–90 % chacun). Persistant dans `data/sensors-config.json`.
 3. **Trigger** : sur front montant (valeur < seuil), le hub appelle le même flux que `POST /api/trigger?col=N` (avec anti-rebond 500 ms).
+4. **Impact structure** : le hub analyse les chutes ADC corrélées sur plusieurs capteurs (vibrations physiques) via `shared/modules/impact-detector`. Événement distinct du trigger colonne — message WS `SENSOR_IMPACT`, relais optionnel `POST /api/impact` vers le jeu actif. Paramètres dans `data/sensors-config.json` → `impactDetection`. Visualisation sur `/sensors`.
 
 ---
 
@@ -116,7 +117,7 @@ Accessible depuis le contrôleur (**Capteurs IR**) ou directement :
 http://localhost:3000/sensors
 ```
 
-Affiche en temps réel : valeurs ADC, seuils, historique graphique, journal des détections. **Seuil global** réglable (10–90 %, défaut 55 %) plus **curseur par capteur** pour un override individuel (badge « Perso »). Bouton **Réinitialiser tous les capteurs** pour revenir au global. Bouton **Recalibrer** → `POST /api/sensors/recalibrate`.
+Affiche en temps réel : valeurs ADC, seuils, historique graphique, journal des détections, **panneau impacts structure** (vibrations multi-capteurs) avec mode **Plein écran** pour l'alignement des paniers (7 colonnes = disposition physique). Bannière explicite à chaque impact détecté. **Jauge de stabilité** par capteur (participation aux impacts sur 10 min) pour repérer un mauvais alignement. **Seuil global** réglable (10–90 %, défaut 55 %) plus **curseur par capteur** pour un override individuel (badge « Perso »). Bouton **Réinitialiser tous les capteurs** pour revenir au global. Bouton **Recalibrer** → `POST /api/sensors/recalibrate`.
 
 Fichier de persistance : `data/sensors-config.json` (`thresholdRatio` + `sensorOverrides` optionnels par index 0–6). Voir [`data/README.md`](../data/README.md).
 

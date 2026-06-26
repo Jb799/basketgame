@@ -170,6 +170,7 @@ basketgame/
 │   │   ├── sounds/             ← Fichiers audio + sounds-manifest.json
 │   │   ├── ws-client.js        ← Client WebSocket avec reconnexion auto
 │   │   ├── column-layout.css   ← Layout 7 colonnes pleine largeur télé
+│   │   ├── structure-impact.js/css ← Effets cosmétiques impacts structure physique (shake, flash, colonnes)
 │   │   ├── player-faces.js/css ← Visages joueurs (idle/win/lose) + repli initiales + têtes qui tombent (cutout)
 │   │   └── camera-capture.js/css ← Capture photo carrée via webcam + effets (filtres, fonds MediaPipe, lentilles Jeeliz) + tête détourée PNG
 │   └── modules/                ← Logique de jeu réutilisable (pure)
@@ -179,7 +180,9 @@ basketgame/
 │       ├── win-detector/       ← Détection d'alignement (N en ligne)
 │       ├── series/             ← Gagnant d'une série de manches
 │       ├── plinko/             ← Plateau aléatoire + simulation chute
-│       └── player-profiles/    ← Profils joueurs (pseudo + photos + tête détourée cutout.png) + persistance
+│       └── impact-detector/    ← Détection impact structure (vibrations multi-capteurs)
+│       └── sensor-stability/   ← Santé capteur (participation impacts, fenêtre glissante)
+│       └── player-profiles/    ← Profils joueurs (pseudo + photos + cutout + statistics.json) + persistance
 ├── hub/                       ← Serveur principal (sans logique de jeu)
 │   ├── index.js               ← Express + WS + proxy + API + pages
 │   ├── esp32SensorService.js  ← Port série ESP32, calibration, détection balle
@@ -198,8 +201,7 @@ basketgame/
 │           └── tv.js           ← Bascule attente / jeu
 └── games/
     ├── puissance4/            ← Jeu de référence (grille)
-    ├── plinko/                ← Plinko (chute + pièces, 2–5 joueurs)
-    └── zombie-siege/          ← Siège Zombie (coop tower defense, vagues)
+    └── plinko/                ← Plinko (chute + pièces, 2–5 joueurs)
 ```
 
 ### Ordre de chargement des scripts du jeu Puissance 4 (`games/puissance4/public/index.html`)
@@ -222,6 +224,7 @@ basketgame/
 ./start.zsh              # démarre le hub (vérifie Node, installe si besoin, affiche les URLs)
 ./start.zsh --open       # + ouvre contrôleur et télé dans le navigateur
 ./start.zsh --dev        # mode développement (rechargement auto)
+./start.zsh --simulate   # capteurs simulés — pas d'ESP32 USB requis
 ./start.zsh --install    # force npm install avant le démarrage
 ./start.zsh --help       # aide
 ```
@@ -232,6 +235,7 @@ basketgame/
 .\start.ps1              # démarre le hub (vérifie Node, installe si besoin, affiche les URLs)
 .\start.ps1 --open       # + ouvre contrôleur et télé dans le navigateur
 .\start.ps1 --dev        # mode développement (rechargement auto)
+.\start.ps1 --simulate   # capteurs simulés — pas d'ESP32 USB requis
 .\start.ps1 --install    # force npm install avant le démarrage
 .\start.ps1 --help       # aide
 ```
@@ -289,13 +293,10 @@ curl -X POST http://localhost:3000/api/players \
  -H 'Content-Type: application/json' \
  -d '{"pseudo": "Alice"}'
 
-# Lancer Puissance 4 avec un roster (jeux requiresPlayerRoster)
+# Lancer Puissance 4 avec un roster optionnel (profils choisis)
 curl -X POST http://localhost:3000/api/games/puissance4/start \
  -H 'Content-Type: application/json' \
- -d '{"roster": ["<id-joueur-1>", "<id-joueur-2>"]}'
-
-# Lancer Siège Zombie (coop)
-curl -X POST http://localhost:3000/api/games/zombie-siege/start
+  -d '{"roster": ["<id-joueur-1>", "<id-joueur-2>"]}'
 
 # Trigger ESP32 (relayé au jeu actif) — colonne 4 (index 3)
 curl -X POST "http://localhost:3000/api/trigger?col=3"
@@ -363,14 +364,20 @@ Constantes propres à Puissance 4 (`games/puissance4/server/game.js`) : `ROWS = 
 | `shared/modules/scoring` | `Scoring` | Scores par joueur + persistance JSON (`addWin`, `addPoints`, `get`) |
 | `shared/modules/win-detector` | `findWinningLine` | Détection de N jetons alignés (4 axes) |
 | `shared/modules/series` | `getSeriesWinner` | Gagnant d'une série (premier à N victoires) |
-| `shared/modules/plinko` | `generateBoard`, `simulateDropSeeded`, `generateMinigameLayout`, `rollMinigamePercent`, `resolveMinigameCoins` | Plateau Plinko + chute discrète + mini-jeux couteau/voleur |
-| `shared/modules/player-profiles` | `PlayerProfiles` | Profils joueurs (pseudo + 3 photos + tête détourée `cutout.png`) + persistance `data/players/` |
+| `shared/modules/plinko` | `generateBoard`, `simulateDropSeeded`, `generateMinigameLayout`, `generateGoldenBasketConfig`, `getGoldenColAt`, `rollMinigamePercent`, `resolveMinigameCoins` | Plateau Plinko + chute discrète + mini-jeux couteau/voleur/panier d'or |
+| `shared/modules/impact-detector` | `ImpactDetector`, `normalizeImpactConfig` | Détection d'impact structure (chutes ADC corrélées multi-capteurs) |
+| `shared/modules/sensor-stability` | `SensorStabilityTracker` | Santé / stabilité par capteur (participation impacts, fenêtre glissante) |
+| `shared/modules/player-profiles` | `PlayerProfiles` | Profils joueurs (pseudo + 3 photos + tête détourée `cutout.png` + `statistics.json`) + persistance `data/players/` |
+| `shared/modules/player-stats` | `recordResult`, `normalizeStats` | Agrégation stats par jeu (`win` / `loss` / `tie`) — I/O via `player-profiles` |
+| `shared/server/reportPlayerStats.js` | `reportFromRoster` | Envoi fin de partie vers `POST /api/players/record-game` (hub) |
 | `shared/client/brand.css` | variables `--brand-*` | Palette noir & orange (paniers physiques) |
 | `shared/client/sound-engine.js` | `window.SoundEngine` | Moteur audio samples (preload, debounce, manifest) — voir `docs/SOUNDS.md` |
 | `shared/client/effects.js` | `window.Confetti`, `window.Sounds` | Effets visuels + API sons sémantique (client) |
 | `shared/client/sounds/` | `sounds-manifest.json` | Fichiers audio normalisés — catalogue dans `docs/SOUNDS.md` |
 | `shared/client/ws-client.js` | `window.WSClient` | Connexion WS avec reconnexion |
 | `shared/client/column-layout.css` | classes `.platform-*` | Grille 7 colonnes télé |
+| `shared/client/structure-impact.js` | `window.StructureImpact` | Effets cosmétiques impacts structure (`init`, `play`) — shake, flash orange, surbrillance colonnes, son `ballTap` |
+| `shared/client/structure-impact.css` | classes `.structure-impact-*` | Animations shake / flash / colonnes pour impacts structure |
 | `shared/client/player-faces.js` | `window.PlayerFaces` | Visages joueurs (variante idle/win/lose, tailles sm→xxl) + repli initiales + `getCutoutUrl` + têtes qui tombent (`dropHead`/`rainHeads`, photo win/lose si demandée) |
 | `shared/client/player-faces.css` | classes `.player-face*`, `.player-head-drop*` | Style des visages joueurs + couche/anim des têtes qui tombent |
 | `shared/client/camera-capture.js` | `window.CameraCapture` | Capture photo carrée via webcam + effets : filtres couleur, fonds (flou/coloré via MediaPipe SelfieSegmentation), lentilles visage (accessoires vectoriels calés sur le suivi du visage Jeeliz FaceFilter) — libs CDN lazy ; option `withCutout` → PNG détouré transparent |
@@ -401,8 +408,10 @@ POST http://<hub>:3000/api/trigger?col=N
 |--------|-------------|---------|
 | `HUB_STATE` | Connexion + tout changement | `status`, `activeGameId`, `port`, `games[]` |
 | `HUB_TRIGGER` | Trigger sans jeu actif | `column` (0–6) — chute d'un 🏀 sur l'écran d'attente `/tv` |
-| `SENSOR_UPDATE` | Lecture série | `values[]`, `states[]`, `thresholds[]`, `history[][]`, … |
+| `HUB_IMPACT` | Impact sans jeu actif | `sensors[]`, `magnitude`, `peakDrop`, … — effet cosmétique sur `/tv` (`StructureImpact`) |
+| `SENSOR_UPDATE` | Lecture série | `values[]`, `states[]`, `thresholds[]`, `history[][]`, `impactDetection`, `totalImpacts`, … |
 | `SENSOR_EVENT` | Front détection | `sensor`, `state` |
+| `SENSOR_IMPACT` | Impact structure | `sensors[]`, `drops[]`, `magnitude`, `peakDrop`, `sensorCount`, `timestamp`, `totalImpacts` |
 | `SENSOR_CALIBRATION_*` | Calibration IR | voir `docs/API.md` |
 | `SENSOR_SERIAL_STATUS` | Connexion port USB | `connected`, `port` / `message` |
 

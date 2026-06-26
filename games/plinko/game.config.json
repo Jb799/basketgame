@@ -9,7 +9,7 @@
   "accent": "#ffd700",
   "server": { "entry": "server/index.js" },
   "controller": {
-    "requiresPlayerRoster": true,
+    "optionalPlayerRoster": true,
     "startOptions": [
       {
         "id": "playerCount",

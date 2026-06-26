@@ -5,7 +5,7 @@ Ce dossier contient des fichiers **propres à votre installation**. Ils ne sont 
 | Chemin | Contenu | Créé par |
 |--------|---------|----------|
 | `players/` | Profils joueurs (pseudo, photos JPEG, tête détourée PNG) | Page `/players` du hub |
-| `sensors-config.json` | Seuils IR : ratio global + overrides par capteur | Dashboard `/sensors` |
+| `sensors-config.json` | Seuils IR : ratio global + overrides par capteur + détection d'impact structure | Dashboard `/sensors` |
 
 Exemple `sensors-config.json` :
 
@@ -15,10 +15,17 @@ Exemple `sensors-config.json` :
   "sensorOverrides": {
     "2": 0.40,
     "5": 0.62
+  },
+  "impactDetection": {
+    "enabled": true,
+    "sensitivity": 65,
+    "peakSamples": 8
   }
 }
 ```
 
 Les clés de `sensorOverrides` sont les index capteur `0`–`6` (colonnes 1–7). Absence de clé = le capteur suit le seuil global.
+
+`impactDetection.sensitivity` : **10 % = très sensible**, **90 % = très tolérant** (défaut **65 %**). Le hub en déduit `minDrop`, `minSensors`, `windowMs` et `debounceMs`. Réglable sur `/sensors` ou via `POST /api/sensors/impact-sensitivity` avec `{ "percent": 70 }`.
 
 Au premier lancement, seul `players/.gitkeep` est présent dans le dépôt git. Les dossiers et fichiers ci-dessus sont créés automatiquement à l'usage.

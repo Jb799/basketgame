@@ -21,6 +21,9 @@ window.App = (function () {
     Board.init();
     Players.init();
     UI.init();
+    if (window.StructureImpact) {
+      StructureImpact.init({ root: document.getElementById('game-layout') });
+    }
     connect();
   }
 
@@ -97,6 +100,9 @@ window.App = (function () {
         break;
       case 'TOKEN_ERROR':
         handleError(msg);
+        break;
+      case 'STRUCTURE_IMPACT':
+        if (window.StructureImpact) StructureImpact.play(msg);
         break;
       default:
         console.warn('[WS] Type de message inconnu:', msg.type);

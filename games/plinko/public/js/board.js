@@ -74,18 +74,49 @@ window.Board = (function () {
       const col = document.createElement('div');
       col.className = 'drop-col';
       col.dataset.col = String(c);
+      const led = document.createElement('span');
+      led.className = 'drop-col__led';
+      led.setAttribute('aria-hidden', 'true');
+      col.appendChild(led);
       dropZoneEl.appendChild(col);
     }
   }
 
-  function highlightColumn(col) {
+  function setColumnLed(col, mode) {
     dropZoneEl.querySelectorAll('.drop-col').forEach((el) => {
-      el.classList.toggle('is-active', Number(el.dataset.col) === col);
+      const match = Number(el.dataset.col) === col;
+      el.classList.remove('is-active', 'is-led-on', 'is-led-blink', 'is-led-confirm');
+      if (!match) return;
+      if (mode === 'off') return;
+      el.classList.add('is-active');
+      if (mode === 'blink') el.classList.add('is-led-blink');
+      else if (mode === 'on') el.classList.add('is-led-on');
+      else if (mode === 'confirm') el.classList.add('is-led-confirm');
     });
   }
 
+  function highlightColumn(col) {
+    setColumnLed(col, 'blink');
+  }
+
   function clearColumnHighlight() {
-    dropZoneEl.querySelectorAll('.drop-col').forEach((el) => el.classList.remove('is-active'));
+    clearColumnLed();
+  }
+
+  function clearColumnLed() {
+    dropZoneEl.querySelectorAll('.drop-col').forEach((el) => {
+      el.classList.remove('is-active', 'is-led-on', 'is-led-blink', 'is-led-confirm');
+    });
+  }
+
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  async function confirmColumnLed(col) {
+    setColumnLed(col, 'confirm');
+    await sleep(650);
+    clearColumnLed();
   }
 
   function buildSlotElement(slot) {
@@ -101,6 +132,7 @@ window.Board = (function () {
     else if (slot.type === 'bomb') icons.textContent = '💣';
     else if (slot.type === 'knife') icons.textContent = '🔪';
     else if (slot.type === 'thief') icons.textContent = '🦹';
+    else if (slot.type === 'golden') icons.textContent = '🏆';
     else icons.textContent = '—';
 
     const value = document.createElement('div');
@@ -109,6 +141,7 @@ window.Board = (function () {
     else if (slot.type === 'bomb') value.textContent = String(slot.value);
     else if (slot.type === 'knife') value.textContent = 'COUTEAU';
     else if (slot.type === 'thief') value.textContent = 'VOLEUR';
+    else if (slot.type === 'golden') value.textContent = 'OR';
     else value.textContent = '0';
 
     el.appendChild(icons);
@@ -287,6 +320,9 @@ window.Board = (function () {
     transitionBoard,
     highlightColumn,
     clearColumnHighlight,
+    setColumnLed,
+    clearColumnLed,
+    confirmColumnLed,
     hitPeg,
     tryHitPegAt,
     resetPegHits,

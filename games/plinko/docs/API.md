@@ -57,7 +57,7 @@
 
 `TURN_CHANGE`, `ROUND_END` ou `GAME_OVER` sont envoyés **6500 ms après** une chute normale, ou **5500 ms après** `MINIGAME_RESULT`.
 
-`MINIGAME_START` est diffusé **5500 ms après** `BALL_DROP` sur case couteau/voleur (phase `resolving` jusqu'à cet armement).
+`MINIGAME_START` est diffusé **5500 ms après** `BALL_DROP` sur case couteau/voleur/or (phase `resolving` jusqu'à cet armement).
 
 `appliedDelta` = pièces réellement gagnées/perdues (plancher à 0). `slotDelta` / `delta` = valeur appliquée (déjà ×2 si `onFireAtLand`). `baseSlotDelta` = valeur brute de la case avant multiplicateur feu.
 
@@ -65,9 +65,9 @@
 |-------|-------------|
 | `onFireAtLand` | `true` si la balle atterrit encore en feu (≥3 même sens sans changement) |
 | `multiplier` | `2` si feu actif à l'atterrissage et case non neutre/spéciale, sinon `1` |
-| `triggersMinigame` | `true` si case `knife` ou `thief` — déclenche `MINIGAME_START` |
-| `minigameSkipped` | `true` si case spéciale mais aucun adversaire n'a de pièces — pas de mini-jeu |
-| `minigameKind` | `"knife"` ou `"thief"` si mini-jeu (ou case d'origine si annulé) |
+| `triggersMinigame` | `true` si case `knife`, `thief` ou `golden` — déclenche `MINIGAME_START` |
+| `minigameSkipped` | `true` si case couteau/voleur mais aucun adversaire n'a de pièces — pas de mini-jeu (jamais pour `golden`) |
+| `minigameKind` | `"knife"`, `"thief"` ou `"golden"` si mini-jeu (ou case d'origine si annulé) |
 
 ### Erreurs trigger
 
@@ -92,13 +92,29 @@ Format : `{ "type": "SCREAMING_SNAKE_CASE", ... }`
 | `INIT` | Connexion WS | `state` |
 | `BOARD_READY` | Nouveau plateau / reset | `board`, `round`, `seed`, `state` |
 | `BALL_DROP` | Trigger valide (plateau) | `droppingPlayer`, `entryCol`, `path`, `slot`, `triggersMinigame`, `minigameStart`, `advanceKind` |
-| `MINIGAME_START` | ~5,5 s après `BALL_DROP` knife/thief (armement mini-jeu ; données aussi dans `BALL_DROP.minigameStart`) | `kind`, `activePlayer`, `columns`, `seed` |
-| `MINIGAME_RESULT` | Trigger valide en phase mini-jeu | `kind`, `targetCol`, `targetType`, `targetPlayer`, `rolledAmount`, `resolvedAmount`, `appliedToVictim`, `appliedToAttacker`, `scores`, `advanceKind` |
+| `MINIGAME_START` | ~5,5 s après `BALL_DROP` knife/thief/golden (armement ; données aussi dans `BALL_DROP.minigameStart`) | `kind`, `activePlayer`, `columns` (couteau/voleur) ou `coinReward`, `periodMs`, `movementStartedAt` (or), `seed` |
+| `MINIGAME_RESULT` | Trigger valide en phase mini-jeu | `kind`, `targetCol`, `targetType`, `hit`, `goldenCol`, `coinReward` (or), `targetPlayer`, `rolledAmount`, `resolvedAmount`, `appliedToVictim`, `appliedToAttacker`, `scores`, `advanceKind` |
 | `TURN_CHANGE` | ~5,8 s après chute ou ~9 s après mini-jeu | `currentPlayer`, `playersPlayedThisRound`, `scores` |
 | `ROUND_END` | idem (dernier joueur du tour) | `round`, `roundScores`, `scores`, `stats`, `totalRounds` |
 | `GAME_OVER` | idem (dernier coup) | `ranking`, `isTie`, `tiedPlayers`, `winners`, `stats`, `scores`, `podium` |
 | `DROP_ERROR` | Trigger invalide | `error`, `col` |
 | `RESET` | Reset manuel | `state` |
+| `STRUCTURE_IMPACT` | Impact structure physique (hub → `POST /api/impact`) | `sensors[]`, `drops[]`, `magnitude`, `peakDrop`, `sensorCount`, `timestamp` — **cosmétique uniquement** (`StructureImpact.play`) |
+
+### `STRUCTURE_IMPACT` (cosmétique)
+
+Diffusé par `createGameServer` lorsqu'un impact structure est relayé par le hub. Aucun effet sur les pièces, tours ou plateau. Voir `shared/client/structure-impact.js`.
+
+### Séquence mini-jeu (panier d'or)
+
+```
+BALL_DROP  { slot: { type: "golden" }, triggersMinigame: true, minigameStart: { kind: "golden", coinReward: 75, periodMs: 9000 } }
+MINIGAME_START { kind: "golden", coinReward: 75, periodMs: 9000, movementStartedAt: 1710000000000 }
+  … joueur tire colonne 3 alors que le panier est en colonne 3 …
+MINIGAME_RESULT { kind: "golden", targetCol: 3, goldenCol: 3, hit: true, coinReward: 75, appliedToAttacker: 75, targetType: "golden" }
+  … 5500 ms …
+  TURN_CHANGE { currentPlayer: 2 }
+```
 
 ### Séquence mini-jeu (couteau)
 
@@ -162,18 +178,20 @@ BOARD_READY { round: 2, board: {...} }
       "neutralHits": 0,
       "knivesHit": 0,
       "thievesHit": 0,
+      "goldenHits": 0,
       "minigameHits": 0,
       "minigameCoinsTaken": 0,
-      "minigameCoinsStolen": 0
+      "minigameCoinsStolen": 0,
+      "goldenBasketsHit": 0
     }
   }
 }
 ```
 
-En phase mini-jeu, `minigame` contient `{ kind, activePlayer, columns, seed }`.
+En phase mini-jeu, `minigame` contient `{ kind, activePlayer, seed, columns }` (couteau/voleur) ou `{ kind, activePlayer, seed, coinReward, periodMs, columnCount, movementStartedAt }` (or).
 
 `roster` (tableau, slot N = joueur N) provient des profils choisis sur le contrôleur
-(`controller.requiresPlayerRoster`). Vide `[]` si lancé sans roster. `cutoutUrl` (tête
+(`controller.optionalPlayerRoster`). Vide `[]` si lancé sans profil — avatars initiales par défaut. `cutoutUrl` (tête
 détourée PNG transparent) vaut `null` si absente. L'interface choisit `idle` sur les
 onglets, `win`/`lose` lors des variations de score et des vols, `win` pour le 1er du podium
 et `lose` pour le dernier ; le vainqueur déclenche une pluie de têtes (photo `win`).
@@ -193,7 +211,10 @@ Absent dans `BALL_DROP` si `triggersMinigame: true` (calculé après le mini-jeu
 | Champ | Description |
 |-------|-------------|
 | `targetCol` | Colonne visée (0–6) |
-| `targetType` | `"hole"` ou `"player"` |
+| `targetType` | `"hole"`, `"player"` ou `"golden"` |
+| `hit` | `true` si panier d'or touché (kind `golden`), absent sinon |
+| `goldenCol` | Colonne du panier au moment du tir (kind `golden`) |
+| `coinReward` | Montant affiché sur le panier (50–100, kind `golden`) |
 | `targetPlayer` | Numéro joueur victime, ou `null` si trou |
 | `rolledPercent` | Pourcentage tiré (5, 10, 15, 20 ou 25), 0 si trou |
 | `rolledAmount` | Montant en pièces calculé à partir du % et du solde victime, 0 si trou |

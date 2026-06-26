@@ -11,7 +11,7 @@
     "entry": "server/index.js"
   },
   "controller": {
-    "requiresPlayerRoster": true,
+    "optionalPlayerRoster": true,
     "actions": [
       {
         "id": "reset-round",

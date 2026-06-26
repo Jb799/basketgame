@@ -172,6 +172,15 @@ body {
   color: var(--accent);
 }
 
+.esp-banner.is-simulated {
+  background: linear-gradient(120deg, var(--brand-orange-soft), var(--surface));
+  border-color: var(--accent-glow);
+}
+
+.esp-banner.is-simulated .esp-banner__label {
+  color: var(--accent);
+}
+
 .esp-banner__text {
   font-size: 0.85rem;
   color: var(--text-dim);
@@ -405,6 +414,13 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-dim);
+}
+
+.roster-picker__hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.35;
 }
 
 .roster-picker__empty {

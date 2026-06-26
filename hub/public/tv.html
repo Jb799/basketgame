@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/shared/column-layout.css" />
+  <link rel="stylesheet" href="/shared/structure-impact.css" />
   <link rel="stylesheet" href="css/hub.css" />
 </head>
 <body>
@@ -23,7 +24,6 @@
 
       <div class="tv-wait__content">
         <div class="tv-wait__logo brand">Basket<span class="brand__accent">Game</span></div>
-        <p class="tv-wait__hint">En attente — choisissez un jeu sur le contrôleur</p>
         <span class="tv-wait__status" id="tv-status">
           <span class="tv-wait__dot"></span>
           <span id="tv-status-label">Connexion au hub…</span>
@@ -36,6 +36,9 @@
   </div>
 
   <script src="/shared/ws-client.js"></script>
+  <script src="/shared/sound-engine.js"></script>
+  <script src="/shared/effects.js"></script>
+  <script src="/shared/structure-impact.js"></script>
   <script src="js/tv.js"></script>
 </body>
 </html>

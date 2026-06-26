@@ -31,18 +31,21 @@ function Write-Err($Message)   { Write-Host "[X] $Message" -ForegroundColor Red 
 $Mode = 'start'
 $OpenBrowser = $false
 $ForceInstall = $false
+$Simulate = $false
 
 foreach ($arg in $args) {
     switch ($arg) {
-        '--dev'     { $Mode = 'dev' }
-        '--open'    { $OpenBrowser = $true }
-        '--install' { $ForceInstall = $true }
+        '--dev'      { $Mode = 'dev' }
+        '--simulate' { $Simulate = $true }
+        '--open'     { $OpenBrowser = $true }
+        '--install'  { $ForceInstall = $true }
         { $_ -in '-h', '--help' } {
-            Write-Host 'Usage: .\start.ps1 [--dev] [--open] [--install]'
+            Write-Host 'Usage: .\start.ps1 [--dev] [--simulate] [--open] [--install]'
             Write-Host ''
-            Write-Host '  --dev      Rechargement auto (npm run dev)'
-            Write-Host '  --open     Ouvre le controleur et la tele dans le navigateur'
-            Write-Host '  --install  Force npm install avant le demarrage'
+            Write-Host '  --dev       Rechargement auto (npm run dev)'
+            Write-Host '  --simulate  Capteurs simules — pas d''ESP32 USB requis'
+            Write-Host '  --open      Ouvre le controleur et la tele dans le navigateur'
+            Write-Host '  --install   Force npm install avant le demarrage'
             exit 0
         }
         default {
@@ -173,6 +176,10 @@ Write-Info "Controleur (PC / mobile) :  http://${IP}:${PortHub}/"
 Write-Info "Tele (grand ecran)       :  http://${IP}:${PortHub}/tv"
 Write-Info "Capteurs IR (dashboard)  :  http://${IP}:${PortHub}/sensors"
 Write-Info "Trigger manuel/simulateur:  POST http://${IP}:${PortHub}/api/trigger?col=N"
+if ($Simulate) {
+    Write-Warn 'Mode simulation — ESP32 non requis (dashboard + bouton Simuler la balle)'
+    Write-Info "Impact simule:            POST http://${IP}:${PortHub}/api/sensors/simulate/impact"
+}
 Write-Host ''
 
 if ($OpenBrowser) {
@@ -185,6 +192,10 @@ Write-Info 'Ctrl+C pour arreter le serveur'
 Write-Host ''
 
 # --- Demarrage ---
+if ($Simulate) {
+    $env:SENSOR_SIMULATE = '1'
+}
+
 try {
     if ($Mode -eq 'dev') {
         npm run dev

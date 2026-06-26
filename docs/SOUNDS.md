@@ -25,18 +25,16 @@ Ordre de chargement dans chaque jeu (`games/<id>/public/index.html`) :
 |-------------|---------|------|------------------|----------------------|
 | `piglevelwin` | `piglevelwin.mp3` | Victoire finale (~4 s) | Podium, gagnant de série, fin de partie | Victoire de manche, rebonds, UI |
 | `coin` | `coin.mp3` | Gain de pièces | Récompense monétaire positive | Pertes, erreurs |
-| `bomb` | `bomb.mp3` | Explosion | Bombe Plinko, brèche zombie | Petits impacts |
-| `meleeHit` | `hit-swing-sword.mp3` | Coup épée/couteau | Impact projectile zombie, slot couteau Plinko | Rebond de balle |
-| `gameover` | `gameover.mp3` | Défaite | Game over Siège Zombie | Victoire, match nul |
-| `achievement` | `achievement.mp3` | Succès intermédiaire | Score, manche gagnée, mini-jeu, vague bonus | Fin de série (trop court) |
-| `swoosh` | `mixkit-game-ball-tap-2073.wav`* | Mouvement rapide | Lancer balle, projectile, spawn zombie | Impact au sol |
+| `bomb` | `bomb.mp3` | Explosion | Bombe Plinko | Petits impacts |
+| `meleeHit` | `hit-swing-sword.mp3` | Coup épée/couteau | Slot couteau Plinko | Rebond de balle |
+| `gameover` | `gameover.mp3` | Défaite | — | Victoire, match nul |
+| `achievement` | `achievement.mp3` | Succès intermédiaire | Score, manche gagnée, mini-jeu | Fin de série (trop court) |
+| `swoosh` | `swoosh.mp3` | Mouvement rapide | Lancer balle, projectile | Impact au sol |
 | `click` | `computer-mouse-click.mp3` | Clic UI | Changement de tour, reset | Événements de gameplay |
-| `levelComplete` | `mixkit-game-level-completed-2059.wav` | Niveau / vague | Annonce nouvelle vague zombie | Chaque kill |
-| `ballTap` | `mixkit-game-ball-tap-2073.wav` | Balle touche surface | Chute jeton P4, tir raté zombie | Victoire |
+| `levelComplete` | `mixkit-game-level-completed-2059.wav` | Niveau / vague | — | Chaque kill |
+| `ballTap` | `mixkit-game-ball-tap-2073.wav` | Balle touche surface | Chute jeton P4 | Victoire |
 | `smallHit` | `mixkit-small-hit-in-a-game-2072.wav` | Petit impact / rebond | Atterrissage jeton, rebond plot Plinko, erreur | Explosion |
 | `boostRecharge` | `mixkit-player-boost-recharging-2040.wav` | Gain de quantité | Multiplicateur ×2, score positif volant | Perte de points |
-
-\* **Repli temporaire** : `swoosh` pointe vers `ballTap` accéléré (`playbackRate: 1.35`) tant que `swoosh.mp3` n'est pas ajouté. Mettre à jour `sounds-manifest.json` quand le fichier est disponible.
 
 ## API `window.Sounds`
 
@@ -63,11 +61,12 @@ Toujours préférer ces méthodes plutôt que `SoundEngine.play()` directement d
 | `gameOver()` | `gameover` | |
 | `levelComplete()` | `levelComplete` | |
 | `throwProjectile()` | `swoosh` | |
-| `spawn()` | `swoosh` rate 0.7 | Apparition zombie |
-| `breach()` | `bomb` | Brèche mur |
+| `spawn()` | `swoosh` rate 0.7 | Apparition ennemi (réservé futurs jeux) |
+| `breach()` | `bomb` | Brèche (réservé futurs jeux) |
 | `miss()` | alias `error()` | |
 | `fallMiss()` | `ballTap` vol. 0.7 | Projectile tombe à côté |
 | `thiefSwoosh()` | `swoosh` | Vol Plinko (avant pièces) |
+| `structureImpact(intensity)` | `ballTap` vol. 0.45–0.85 | Impact structure physique (cosmétique, `StructureImpact`) |
 
 ## Règles anti-spam
 
@@ -92,6 +91,7 @@ Configurées dans [`shared/client/sounds/sounds-manifest.json`](../shared/client
 | Match nul | `draw()` | achievement (bas) |
 | Colonne pleine | `error()` | small-hit |
 | Reset | `reset()` | click |
+| Impact structure | `structureImpact()` | ball-tap (cosmétique) |
 
 ### Plinko
 
@@ -105,24 +105,10 @@ Configurées dans [`shared/client/sounds/sounds-manifest.json`](../shared/client
 | ×2 feu | `multiplierX2()` | boost-recharge |
 | Slot couteau | `meleeHit()` | hit-swing-sword |
 | Vol voleur | `thiefSwoosh()` + `coinWin()` | swoosh + coin |
-| Slot mini-jeu | `scorePop()` | achievement |
+| Case or atterrissage | `goldenFlash()` + `achievement` | achievement |
+| Panier d'or touché (mini-jeu) | `achievement` + `coinWin()` | achievement + coin |
 | Podium | `victory()` | piglevelwin |
-
-### Siège Zombie
-
-| Événement | Méthode | Fichier |
-|-----------|---------|---------|
-| Spawn zombie | `spawn()` | swoosh grave |
-| Lancer projectile | `throwProjectile()` | swoosh |
-| Impact kill | `meleeHit()` + `scorePop()` | sword + achievement |
-| Bombe zombie | `bombHit()` | bomb |
-| Brèche | `breach()` | bomb |
-| Nouvelle vague | `levelComplete()` | level-completed |
-| Game over | `gameOver()` | gameover |
-| Victoire coop | `victory()` | piglevelwin |
-| Tir raté | `miss()` | small-hit |
-| Chute à côté | `fallMiss()` | ball-tap |
-| Bonus vague | `scorePop()` | achievement |
+| Impact structure | `structureImpact()` | ball-tap (cosmétique) |
 
 ## Normalisation du volume
 
@@ -156,7 +142,5 @@ Commande npm : `npm run normalize-sounds`
 
 | Priorité | Asset | Usage | Repli actuel |
 |----------|-------|-------|--------------|
-| **Haute** | `swoosh.mp3` | Lancer, projectile, spawn | ball-tap × 1.35 |
 | Moyenne | Match nul neutre | `draw()` P4 | achievement vol. 0.4 |
-| Basse | Grognement zombie | spawn | swoosh grave |
 | Basse | Vol voleur distinct | mini-jeu Plinko | swoosh + coin |

@@ -14,29 +14,26 @@ Les manches s'enchaînent : le **premier joueur à 5 victoires** remporte la **s
 
 ---
 
-## Profils joueurs (roster)
+## Profils joueurs (roster, optionnel)
 
-Puissance 4 déclare `controller.requiresPlayerRoster` : avant de lancer la partie,
-le contrôleur impose de choisir **2 profils** (créés sur `/players`, chacun avec ses
-3 photos). Le hub transmet un `roster` enrichi (slot, pseudo, URLs des photos) que le
-serveur range dans `state.roster` (voir [`API.md`](API.md)).
+Puissance 4 déclare `controller.optionalPlayerRoster` : avant de lancer la partie,
+le contrôleur propose de choisir **2 profils** (page `/players`) — **optionnel**.
+Les profils **sans photos complètes** sont utilisables (initiales à la place des photos).
+Sans sélection : avatars par défaut (initiales **J1**, **J2**).
+Le hub transmet un `roster` enrichi dans `state.roster` lorsqu'au moins un profil est choisi
+(voir [`API.md`](API.md)).
 
-Côté télé, le module partagé `window.PlayerFaces` affiche la bonne photo selon le moment :
+Côté télé, le module partagé `window.PlayerFaces` affiche la photo ou les initiales :
 
 | Moment | Photo utilisée |
 |--------|----------------|
-| Badge joueur, tour en cours | `idle` |
+| Badge joueur, tour en cours | `idle` (ou initiales) |
 | Manche gagnée (badge + portrait central + overlay de série) | `win` du gagnant |
 | Manche perdue (badge du perdant) | `lose` |
 
 À la victoire d'une manche et à la fin de série, le jeu déclenche aussi une **pluie
-de têtes** du gagnant (`PlayerFaces.rainHeads`) : la tête détourée (PNG transparent,
-`cutoutUrl` du roster) tombe en cascade sur la télé. Le portrait central de victoire
-est affiché en taille `xxl` pour bien le voir sur grand écran.
-
-Sans roster (lancement en ligne de commande sans `roster`), le jeu retombe sur les
-jetons colorés et les libellés « Joueur Orange / Bleu » (et la pluie de têtes est
-désactivée).
+de têtes** du gagnant (`PlayerFaces.rainHeads`) : photo, cutout ou initiales en cascade.
+Le portrait central de victoire est affiché en taille `xxl` pour bien le voir sur grand écran.
 
 ---
 

@@ -8,9 +8,11 @@ const {
   generateBoard,
   simulateDropSeeded,
   generateMinigameLayout,
+  generateGoldenBasketConfig,
   rollMinigamePercent,
   resolveMinigameCoins,
   resolveMinigameColumn,
+  getGoldenColAt,
   createRng,
 } = require('../../../shared/modules/plinko');
 const { TurnManager } = require('../../../shared/modules/turn-manager');
@@ -21,7 +23,7 @@ const TOTAL_ROUNDS = 5;
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 5;
 
-const MINIGAME_KINDS = ['knife', 'thief'];
+const MINIGAME_KINDS = ['knife', 'thief', 'golden'];
 
 function emptyStats() {
   return {
@@ -34,14 +36,23 @@ function emptyStats() {
     neutralHits: 0,
     knivesHit: 0,
     thievesHit: 0,
+    goldenHits: 0,
     minigameHits: 0,
     minigameCoinsTaken: 0,
     minigameCoinsStolen: 0,
+    goldenBasketsHit: 0,
   };
 }
 
 function isMinigamePhase(phase) {
-  return phase === 'minigame_knife' || phase === 'minigame_thief';
+  return phase === 'minigame_knife' || phase === 'minigame_thief' || phase === 'minigame_golden';
+}
+
+function phaseForMinigameKind(kind) {
+  if (kind === 'knife') return 'minigame_knife';
+  if (kind === 'thief') return 'minigame_thief';
+  if (kind === 'golden') return 'minigame_golden';
+  return 'playing';
 }
 
 class Game {
@@ -123,6 +134,7 @@ class Game {
     if (slot.type === 'neutral') s.neutralHits += 1;
     if (slot.type === 'knife') s.knivesHit += 1;
     if (slot.type === 'thief') s.thievesHit += 1;
+    if (slot.type === 'golden') s.goldenHits += 1;
     if (delta > 0) {
       s.coinsWon += delta;
       if (delta > s.bestDrop) s.bestDrop = delta;
@@ -171,6 +183,17 @@ class Game {
 
   _prepareMinigameArm(kind, activePlayer) {
     const seed = this._nextSeed();
+    if (kind === 'golden') {
+      const config = generateGoldenBasketConfig(seed, PLATFORM_COLUMNS);
+      return {
+        kind,
+        activePlayer,
+        seed: config.seed,
+        coinReward: config.coinReward,
+        periodMs: config.periodMs,
+        columnCount: config.columnCount,
+      };
+    }
     const layout = generateMinigameLayout(seed, activePlayer, this.players, PLATFORM_COLUMNS);
     return {
       kind,
@@ -182,15 +205,23 @@ class Game {
 
   _buildMinigameStartFromArm(arm) {
     if (!arm) return null;
-    return {
+    const base = {
       type: 'MINIGAME_START',
       kind: arm.kind,
       activePlayer: arm.activePlayer,
-      columns: arm.columns,
       seed: arm.seed,
       round: this.round,
       scores: { ...this.scoring.scores },
     };
+    if (arm.kind === 'golden') {
+      return {
+        ...base,
+        coinReward: arm.coinReward,
+        periodMs: arm.periodMs,
+        columnCount: arm.columnCount,
+      };
+    }
+    return { ...base, columns: arm.columns };
   }
 
   /**
@@ -201,39 +232,73 @@ class Game {
 
     const arm = this.pendingMinigameArm;
     this.pendingMinigameArm = null;
-    this.minigame = {
-      kind: arm.kind,
-      activePlayer: arm.activePlayer,
-      seed: arm.seed,
-      columns: arm.columns,
-    };
-    this.phase = arm.kind === 'knife' ? 'minigame_knife' : 'minigame_thief';
+    if (arm.kind === 'golden') {
+      this.minigame = {
+        kind: arm.kind,
+        activePlayer: arm.activePlayer,
+        seed: arm.seed,
+        coinReward: arm.coinReward,
+        periodMs: arm.periodMs,
+        columnCount: arm.columnCount,
+        movementStartedAt: Date.now(),
+      };
+    } else {
+      this.minigame = {
+        kind: arm.kind,
+        activePlayer: arm.activePlayer,
+        seed: arm.seed,
+        columns: arm.columns,
+      };
+    }
+    this.phase = phaseForMinigameKind(arm.kind);
     return this._buildMinigameStartMessage();
   }
 
   _startMinigame(kind, activePlayer) {
     const seed = this._nextSeed();
-    const layout = generateMinigameLayout(seed, activePlayer, this.players, PLATFORM_COLUMNS);
-    this.minigame = {
-      kind,
-      activePlayer,
-      seed,
-      columns: layout.columns,
-    };
-    this.phase = kind === 'knife' ? 'minigame_knife' : 'minigame_thief';
+    if (kind === 'golden') {
+      const config = generateGoldenBasketConfig(seed, PLATFORM_COLUMNS);
+      this.minigame = {
+        kind,
+        activePlayer,
+        seed: config.seed,
+        coinReward: config.coinReward,
+        periodMs: config.periodMs,
+        columnCount: config.columnCount,
+        movementStartedAt: Date.now(),
+      };
+    } else {
+      const layout = generateMinigameLayout(seed, activePlayer, this.players, PLATFORM_COLUMNS);
+      this.minigame = {
+        kind,
+        activePlayer,
+        seed,
+        columns: layout.columns,
+      };
+    }
+    this.phase = phaseForMinigameKind(kind);
   }
 
   _buildMinigameStartMessage() {
     if (!this.minigame) return null;
-    return {
+    const base = {
       type: 'MINIGAME_START',
       kind: this.minigame.kind,
       activePlayer: this.minigame.activePlayer,
-      columns: this.minigame.columns,
       seed: this.minigame.seed,
       round: this.round,
       scores: { ...this.scoring.scores },
     };
+    if (this.minigame.kind === 'golden') {
+      return {
+        ...base,
+        coinReward: this.minigame.coinReward,
+        periodMs: this.minigame.periodMs,
+        columnCount: this.minigame.columnCount,
+        movementStartedAt: this.minigame.movementStartedAt,
+      };
+    }
+    return { ...base, columns: this.minigame.columns };
   }
 
   applyPendingAdvance() {
@@ -427,7 +492,7 @@ class Game {
     let triggersMinigame = MINIGAME_KINDS.includes(slot.type);
     let minigameSkipped = false;
 
-    if (triggersMinigame && !this._hasMinigameTargets(droppingPlayer)) {
+    if (triggersMinigame && slot.type !== 'golden' && !this._hasMinigameTargets(droppingPlayer)) {
       triggersMinigame = false;
       minigameSkipped = true;
     }
@@ -492,31 +557,57 @@ class Game {
       return { success: false, error: 'INVALID_COLUMN' };
     }
 
-    const { kind, activePlayer, columns } = this.minigame;
-    const cell = resolveMinigameColumn(columns, col);
-    if (!cell) {
-      return { success: false, error: 'INVALID_COLUMN' };
-    }
-
-    const rng = createRng(this._nextSeed());
+    const { kind, activePlayer } = this.minigame;
     let rolledPercent = 0;
     let rolledAmount = 0;
     let resolvedAmount = 0;
-    let targetType = cell.type;
-    let targetPlayer = cell.player || null;
+    let targetType = 'hole';
+    let targetPlayer = null;
     let appliedToVictim = 0;
     let appliedToAttacker = 0;
+    let hit = false;
+    let goldenCol = null;
+    let coinReward = null;
 
-    if (cell.type === 'player' && targetPlayer) {
-      rolledPercent = rollMinigamePercent(rng);
-      const victimBalance = this.scoring.get(targetPlayer);
-      rolledAmount = resolveMinigameCoins(victimBalance, rolledPercent);
-      const hit = this._resolveMinigameHit(kind, activePlayer, targetPlayer, rolledAmount);
-      rolledAmount = hit.rolledAmount;
-      resolvedAmount = hit.resolvedAmount;
-      appliedToVictim = hit.appliedToVictim;
-      appliedToAttacker = hit.appliedToAttacker;
-      this._updateMinigameStats(activePlayer, targetPlayer, appliedToVictim, appliedToAttacker, kind);
+    if (kind === 'golden') {
+      const { movementStartedAt, periodMs, coinReward: reward } = this.minigame;
+      coinReward = reward;
+      goldenCol = getGoldenColAt(Date.now() - movementStartedAt, periodMs);
+      hit = col === goldenCol;
+      targetType = 'golden';
+      rolledAmount = reward;
+
+      if (hit) {
+        appliedToAttacker = this._applyCoinDelta(activePlayer, reward);
+        resolvedAmount = appliedToAttacker;
+        const s = this.stats[activePlayer];
+        s.minigameHits += 1;
+        s.goldenBasketsHit += 1;
+        s.coinsWon += appliedToAttacker;
+        if (appliedToAttacker > s.bestDrop) s.bestDrop = appliedToAttacker;
+      }
+    } else {
+      const { columns } = this.minigame;
+      const cell = resolveMinigameColumn(columns, col);
+      if (!cell) {
+        return { success: false, error: 'INVALID_COLUMN' };
+      }
+
+      const rng = createRng(this._nextSeed());
+      targetType = cell.type;
+      targetPlayer = cell.player || null;
+
+      if (cell.type === 'player' && targetPlayer) {
+        rolledPercent = rollMinigamePercent(rng);
+        const victimBalance = this.scoring.get(targetPlayer);
+        rolledAmount = resolveMinigameCoins(victimBalance, rolledPercent);
+        const hitResult = this._resolveMinigameHit(kind, activePlayer, targetPlayer, rolledAmount);
+        rolledAmount = hitResult.rolledAmount;
+        resolvedAmount = hitResult.resolvedAmount;
+        appliedToVictim = hitResult.appliedToVictim;
+        appliedToAttacker = hitResult.appliedToAttacker;
+        this._updateMinigameStats(activePlayer, targetPlayer, appliedToVictim, appliedToAttacker, kind);
+      }
     }
 
     this.pendingAdvance = this._computeAdvance();
@@ -535,6 +626,9 @@ class Game {
       resolvedAmount,
       appliedToVictim,
       appliedToAttacker,
+      hit,
+      goldenCol,
+      coinReward,
       scores: { ...this.scoring.scores },
       round: this.round,
       phase: this.phase,
@@ -569,8 +663,15 @@ class Game {
         ? {
             kind: this.minigame.kind,
             activePlayer: this.minigame.activePlayer,
-            columns: this.minigame.columns,
             seed: this.minigame.seed,
+            ...(this.minigame.kind === 'golden'
+              ? {
+                  coinReward: this.minigame.coinReward,
+                  periodMs: this.minigame.periodMs,
+                  columnCount: this.minigame.columnCount,
+                  movementStartedAt: this.minigame.movementStartedAt,
+                }
+              : { columns: this.minigame.columns }),
           }
         : null,
     };

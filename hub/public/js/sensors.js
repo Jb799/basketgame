@@ -9,6 +9,9 @@
   const DEFAULT_THRESHOLD_PERCENT = 55;
   const MIN_THRESHOLD_PERCENT = 10;
   const MAX_THRESHOLD_PERCENT = 90;
+  const DEFAULT_IMPACT_SENSITIVITY = 65;
+  const MIN_IMPACT_SENSITIVITY = 10;
+  const MAX_IMPACT_SENSITIVITY = 90;
 
   const SENSOR_COLORS = [
     '#ff6b00',
@@ -28,6 +31,21 @@
   let sensorBaselines = new Array(NUM_CAPTEURS).fill(4095);
   let sensorThresholds = new Array(NUM_CAPTEURS).fill(2000);
   let totalDetections = 0;
+  let totalImpacts = 0;
+  let impactMinDrop = 50;
+  let impactMinSensors = 4;
+  let impactSensitivity = DEFAULT_IMPACT_SENSITIVITY;
+  let lastSavedImpactSensitivity = DEFAULT_IMPACT_SENSITIVITY;
+  let impactSensitivityEditing = false;
+  let impactSensitivitySaveTimer = null;
+  let prevSensorValues = new Array(NUM_CAPTEURS).fill(4095);
+  let impactAlertTimer = null;
+  let impactFsOpen = false;
+
+  const IMPACT_PLATFORMS = [
+    { id: 'impactPlatform', fs: false },
+    { id: 'impactPlatformFs', fs: true },
+  ];
   let historyData = Array.from({ length: NUM_CAPTEURS }, () => new Array(HISTORY_SIZE).fill(4095));
   let chart = null;
   let serialConnected = false;
@@ -49,6 +67,12 @@
   const thresholdSlider = document.getElementById('thresholdSlider');
   const thresholdValueDisplay = document.getElementById('thresholdValueDisplay');
   const thresholdStatus = document.getElementById('thresholdStatus');
+  const impactSensitivityPanel = document.getElementById('impactSensitivityPanel');
+  const impactSensitivitySlider = document.getElementById('impactSensitivitySlider');
+  const impactSensitivityInput = document.getElementById('impactSensitivityInput');
+  const impactSensitivityDisplay = document.getElementById('impactSensitivityDisplay');
+  const impactSensitivityHint = document.getElementById('impactSensitivityHint');
+  const impactSensitivityStatus = document.getElementById('impactSensitivityStatus');
 
   function initUI() {
     const grid = document.getElementById('sensorGrid');
@@ -74,6 +98,16 @@
         <div class="sensor-stats">
           <span>Détections : <span class="count" id="cnt-${i}">0</span></span>
           <span style="color: ${SENSOR_COLORS[i]};">GPIO ${GPIO_PINS[i]}</span>
+        </div>
+        <div class="sensor-stability" id="sensor-stability-${i}" title="Participation aux impacts structure (fenêtre glissante)">
+          <div class="sensor-stability__head">
+            <span class="sensor-stability__label">Stabilité</span>
+            <span class="sensor-stability__pct" id="stab-pct-${i}">—</span>
+          </div>
+          <div class="sensor-stability__track">
+            <div class="sensor-stability__fill" id="stab-bar-${i}"></div>
+          </div>
+          <p class="sensor-stability__sub" id="stab-sub-${i}">En attente d'impacts…</p>
         </div>
         <div id="thresh-${i}" class="sensor-thresh">Calibration…</div>
         <div class="sensor-threshold" id="sensor-threshold-${i}">
@@ -124,6 +158,482 @@
       gauges.appendChild(mg);
       initSensorThresholdControls(i);
     }
+
+    initImpactPlatform();
+  }
+
+  function clampImpactSensitivity(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return impactSensitivity;
+    return Math.min(MAX_IMPACT_SENSITIVITY, Math.max(MIN_IMPACT_SENSITIVITY, Math.round(n)));
+  }
+
+  function formatImpactSensitivityHint(cfg) {
+    if (!cfg) return '—';
+    return `≥ ${cfg.minSensors} capteurs · chute ≥ ${cfg.minDrop} ADC · fenêtre ${cfg.windowMs} ms`;
+  }
+
+  function previewImpactParams(sensitivity) {
+    const s = clampImpactSensitivity(sensitivity);
+    const t = (s - MIN_IMPACT_SENSITIVITY) / (MAX_IMPACT_SENSITIVITY - MIN_IMPACT_SENSITIVITY);
+    return {
+      minDrop: Math.round(15 + t * 55),
+      minSensors: s >= 78 ? 5 : s >= 52 ? 4 : 3,
+      windowMs: s >= 50 ? 75 : 95,
+    };
+  }
+
+  function applyImpactParamsPreview(preview) {
+    impactMinDrop = preview.minDrop;
+    impactMinSensors = preview.minSensors;
+    if (impactSensitivityHint) {
+      impactSensitivityHint.textContent = formatImpactSensitivityHint(preview);
+    }
+  }
+
+  function syncImpactDetectionFromServer(cfg) {
+    if (!cfg) return;
+    if (cfg.sensitivity != null) {
+      impactSensitivity = cfg.sensitivity;
+      if (!impactSensitivityEditing) {
+        lastSavedImpactSensitivity = cfg.sensitivity;
+        updateImpactSensitivityControls(cfg.sensitivity);
+      }
+    }
+    if (cfg.minDrop != null) impactMinDrop = cfg.minDrop;
+    if (cfg.minSensors != null) impactMinSensors = cfg.minSensors;
+    if (impactSensitivityHint) {
+      impactSensitivityHint.textContent = formatImpactSensitivityHint(cfg);
+    }
+  }
+
+  function updateImpactSensitivityControls(pct, { updateInputs = true } = {}) {
+    const value = clampImpactSensitivity(pct);
+    if (updateInputs) {
+      if (impactSensitivitySlider) {
+        impactSensitivitySlider.value = String(value);
+        impactSensitivitySlider.style.setProperty('--threshold-fill', sliderFillPercent(value));
+      }
+      if (impactSensitivityInput) impactSensitivityInput.value = String(value);
+    }
+    if (impactSensitivityDisplay) {
+      impactSensitivityDisplay.innerHTML = `${value}<span>%</span>`;
+    }
+  }
+
+  function setImpactSensitivityStatus(msg, ok = false) {
+    if (!impactSensitivityStatus) return;
+    if (!msg) {
+      impactSensitivityStatus.hidden = true;
+      impactSensitivityStatus.textContent = '';
+      impactSensitivityStatus.classList.remove('is-ok');
+      return;
+    }
+    impactSensitivityStatus.hidden = false;
+    impactSensitivityStatus.textContent = msg;
+    impactSensitivityStatus.classList.toggle('is-ok', ok);
+  }
+
+  async function saveImpactSensitivity(percent) {
+    const pct = clampImpactSensitivity(percent);
+    if (pct === lastSavedImpactSensitivity) return;
+
+    updateImpactSensitivityControls(pct);
+    clearTimeout(impactSensitivitySaveTimer);
+    impactSensitivityPanel?.classList.add('is-saving');
+    setImpactSensitivityStatus('');
+
+    try {
+      const res = await fetch('/api/sensors/impact-sensitivity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ percent: pct }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        updateImpactSensitivityControls(lastSavedImpactSensitivity);
+        setImpactSensitivityStatus('Impossible d’enregistrer la sensibilité');
+        return;
+      }
+
+      const saved = data.percent ?? pct;
+      lastSavedImpactSensitivity = saved;
+      impactSensitivity = saved;
+      updateImpactSensitivityControls(saved);
+      if (data.impactDetection) syncImpactDetectionFromServer(data.impactDetection);
+      setImpactSensitivityStatus('Sensibilité enregistrée', true);
+      setTimeout(() => setImpactSensitivityStatus(''), 1400);
+    } catch {
+      updateImpactSensitivityControls(lastSavedImpactSensitivity);
+      setImpactSensitivityStatus('Erreur réseau — sensibilité non enregistrée');
+    } finally {
+      impactSensitivityPanel?.classList.remove('is-saving');
+    }
+  }
+
+  function scheduleImpactSensitivitySave(percent, delayMs = 320) {
+    clearTimeout(impactSensitivitySaveTimer);
+    impactSensitivitySaveTimer = setTimeout(() => {
+      saveImpactSensitivity(percent);
+    }, delayMs);
+  }
+
+  function initImpactSensitivityControls() {
+    if (!impactSensitivitySlider || !impactSensitivityInput) return;
+
+    updateImpactSensitivityControls(DEFAULT_IMPACT_SENSITIVITY);
+    if (impactSensitivityHint) {
+      impactSensitivityHint.textContent = formatImpactSensitivityHint({
+        minSensors: impactMinSensors,
+        minDrop: impactMinDrop,
+        windowMs: 75,
+      });
+    }
+
+    const beginEdit = () => {
+      impactSensitivityEditing = true;
+      clearTimeout(impactSensitivitySaveTimer);
+    };
+    const endEdit = () => {
+      impactSensitivityEditing = false;
+    };
+
+    impactSensitivitySlider.addEventListener('pointerdown', beginEdit);
+    impactSensitivitySlider.addEventListener('pointerup', endEdit);
+    impactSensitivitySlider.addEventListener('input', () => {
+      const pct = clampImpactSensitivity(impactSensitivitySlider.value);
+      updateImpactSensitivityControls(pct, { updateInputs: true });
+      applyImpactParamsPreview(previewImpactParams(pct));
+      scheduleImpactSensitivitySave(pct, 320);
+    });
+    impactSensitivitySlider.addEventListener('change', () => {
+      endEdit();
+      clearTimeout(impactSensitivitySaveTimer);
+      saveImpactSensitivity(impactSensitivitySlider.value);
+    });
+
+    impactSensitivityInput.addEventListener('focus', beginEdit);
+    impactSensitivityInput.addEventListener('blur', () => {
+      endEdit();
+      saveImpactSensitivity(impactSensitivityInput.value);
+    });
+    impactSensitivityInput.addEventListener('input', () => {
+      const pct = clampImpactSensitivity(impactSensitivityInput.value);
+      if (impactSensitivitySlider) {
+        impactSensitivitySlider.value = String(pct);
+        impactSensitivitySlider.style.setProperty('--threshold-fill', sliderFillPercent(pct));
+      }
+      if (impactSensitivityDisplay) {
+        impactSensitivityDisplay.innerHTML = `${pct}<span>%</span>`;
+      }
+    });
+    impactSensitivityInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        impactSensitivityInput.blur();
+      }
+    });
+  }
+
+  function stabilityBarColor(status, health) {
+    if (status === 'idle') return 'var(--text-muted)';
+    if (status === 'low' || health < 60) return 'var(--danger)';
+    if (health < 85) return '#f59e0b';
+    return '#22c55e';
+  }
+
+  function updateSensorStability(stability) {
+    if (!stability) return;
+
+    const windowMin = stability.windowMinutes ?? 10;
+    const total = stability.totalImpacts ?? 0;
+    const note = document.getElementById('stabilityWindowNote');
+    if (note) {
+      note.textContent =
+        total > 0
+          ? `Stabilité — ${total} impact(s) sur ${windowMin} min (participation par capteur)`
+          : `Stabilité — frappez la structure pour remplir les jauges (${windowMin} min)`;
+    }
+
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      const health = stability.health?.[i] ?? 100;
+      const count = stability.impactCounts?.[i] ?? 0;
+      const status = stability.status?.[i] ?? 'idle';
+      const color = stabilityBarColor(status, health);
+
+      const card = document.getElementById(`sensor-stability-${i}`);
+      const bar = document.getElementById(`stab-bar-${i}`);
+      const pct = document.getElementById(`stab-pct-${i}`);
+      const sub = document.getElementById(`stab-sub-${i}`);
+
+      if (bar) {
+        bar.style.width = `${health}%`;
+        bar.style.background = color;
+      }
+      if (pct) {
+        pct.textContent = status === 'idle' && total === 0 ? '—' : `${health}%`;
+        pct.style.color = color;
+      }
+      if (sub) {
+        sub.textContent =
+          total === 0
+            ? 'En attente d\'impacts…'
+            : `${count} participation(s) / ${windowMin} min`;
+      }
+      if (card) {
+        card.classList.toggle('sensor-stability--low', status === 'low');
+        card.classList.toggle('sensor-stability--idle', status === 'idle' && total === 0);
+      }
+
+      for (const fsBar of document.querySelectorAll(`[data-stability-bar="${i}"]`)) {
+        fsBar.style.width = `${health}%`;
+        fsBar.style.background = color;
+      }
+      for (const lbl of document.querySelectorAll(`[data-stability-lbl="${i}"]`)) {
+        lbl.textContent = status === 'idle' && total === 0 ? '—' : `${health}%`;
+        lbl.style.color = color;
+      }
+      for (const lane of getImpactLanes(i)) {
+        lane.classList.toggle('impact-lane--unstable', status === 'low');
+      }
+    }
+  }
+
+  function buildImpactLane(i, fs) {
+    const lane = document.createElement('div');
+    lane.className = fs ? 'impact-lane impact-lane--fs platform-column' : 'impact-lane platform-column';
+    lane.dataset.col = String(i);
+    lane.style.setProperty('--lane-color', SENSOR_COLORS[i]);
+    if (fs) {
+      lane.innerHTML = `
+        <div class="impact-lane__head">
+          <span class="impact-lane__num impact-lane__num--lg">${i + 1}</span>
+          <span class="impact-lane__gpio">GPIO ${GPIO_PINS[i]}</span>
+        </div>
+        <div class="impact-lane__track">
+          <div class="impact-lane__bar" data-impact-bar="${i}"></div>
+        </div>
+        <div class="impact-lane__basket" aria-hidden="true">🏀</div>
+        <div class="impact-lane__adc" data-impact-adc="${i}">4095</div>
+        <div class="impact-lane__stability">
+          <div class="impact-lane__stability-track">
+            <div class="impact-lane__stability-fill" data-stability-bar="${i}"></div>
+          </div>
+          <span class="impact-lane__stability-lbl" data-stability-lbl="${i}">—</span>
+        </div>
+      `;
+    } else {
+      lane.innerHTML = `
+        <div class="impact-lane__track impact-lane__track--sm">
+          <div class="impact-lane__bar" data-impact-bar="${i}"></div>
+        </div>
+        <span class="impact-lane__num">${i + 1}</span>
+      `;
+    }
+    return lane;
+  }
+
+  function initImpactPlatform() {
+    for (const { id, fs } of IMPACT_PLATFORMS) {
+      const platform = document.getElementById(id);
+      if (!platform) continue;
+      for (let i = 0; i < NUM_CAPTEURS; i++) {
+        platform.appendChild(buildImpactLane(i, fs));
+      }
+    }
+  }
+
+  function getImpactBars(col) {
+    return document.querySelectorAll(`[data-impact-bar="${col}"]`);
+  }
+
+  function getImpactLanes(col) {
+    return document.querySelectorAll(`.impact-lane[data-col="${col}"]`);
+  }
+
+  function setImpactLiveCount(count) {
+    for (const id of ['impactLiveCount', 'impactLiveCountFs']) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(count);
+    }
+    for (const id of ['impactLive', 'impactLiveFs']) {
+      const wrap = document.getElementById(id);
+      if (wrap) wrap.classList.toggle('impact-panel__live--hot', count >= impactMinSensors - 1);
+    }
+  }
+
+  function updateImpactLive(values, serverDrops) {
+    const minDrop = impactMinDrop;
+    const drops =
+      Array.isArray(serverDrops) && serverDrops.length === NUM_CAPTEURS
+        ? serverDrops
+        : values.map((v, i) => Math.max(0, prevSensorValues[i] - v));
+
+    let dropping = 0;
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      const drop = drops[i];
+      const intensity = Math.min(100, Math.max(0, (drop / minDrop) * 100));
+      const active = drop >= minDrop;
+      if (active) dropping += 1;
+
+      for (const bar of getImpactBars(i)) {
+        bar.style.height = `${intensity}%`;
+        bar.classList.toggle('impact-lane__bar--active', active);
+      }
+      for (const adcEl of document.querySelectorAll(`[data-impact-adc="${i}"]`)) {
+        adcEl.textContent = String(values[i]);
+        adcEl.classList.toggle('impact-lane__adc--drop', active);
+      }
+      for (const lane of getImpactLanes(i)) {
+        lane.classList.toggle('impact-lane--dropping', active);
+      }
+    }
+    setImpactLiveCount(dropping);
+    prevSensorValues = values.slice();
+  }
+
+  function playImpactRipple(rippleId) {
+    const ripple = document.getElementById(rippleId);
+    if (!ripple) return;
+    ripple.hidden = false;
+    ripple.classList.remove('impact-platform__ripple--play');
+    void ripple.offsetWidth;
+    ripple.classList.add('impact-platform__ripple--play');
+    setTimeout(() => {
+      ripple.hidden = true;
+    }, 700);
+  }
+
+  function flashImpactPlatforms() {
+    for (const id of ['impactPlatform', 'impactPlatformFs']) {
+      const platform = document.getElementById(id);
+      if (!platform) continue;
+      platform.classList.remove('impact-platform--hit');
+      void platform.offsetWidth;
+      platform.classList.add('impact-platform--hit');
+    }
+    playImpactRipple('impactRipple');
+    playImpactRipple('impactRippleFs');
+  }
+
+  function flashImpact(sensors) {
+    flashImpactPlatforms();
+    for (const idx of sensors) {
+      for (const lane of getImpactLanes(idx)) {
+        lane.classList.add('impact-flash', 'impact-lane--hit');
+        setTimeout(() => {
+          lane.classList.remove('impact-flash');
+        }, 800);
+      }
+      const card = document.getElementById(`card-${idx}`);
+      if (card) {
+        card.classList.add('impact-flash');
+        setTimeout(() => card.classList.remove('impact-flash'), 800);
+      }
+    }
+  }
+
+  function renderImpactAlertCols(container, sensors) {
+    if (!container) return;
+    container.innerHTML = '';
+    for (let i = 0; i < NUM_CAPTEURS; i++) {
+      const pill = document.createElement('span');
+      pill.className = 'impact-alert__col';
+      pill.textContent = String(i + 1);
+      if (sensors.includes(i)) pill.classList.add('impact-alert__col--on');
+      container.appendChild(pill);
+    }
+  }
+
+  function showImpactAlert(msg) {
+    const sensors = msg.sensors || [];
+    const detail = `${msg.sensorCount} capteur(s) · magnitude ${msg.magnitude} · pic ${msg.peakDrop}`;
+    const detailText = `${detail} · colonnes ${sensors.map((s) => s + 1).join(', ')}`;
+
+    for (const [detailId, colsId, alertId] of [
+      ['impactAlertDetail', 'impactAlertCols', 'impactAlert'],
+      ['impactAlertDetailFs', 'impactAlertColsFs', 'impactAlertFs'],
+    ]) {
+      const detailEl = document.getElementById(detailId);
+      const colsEl = document.getElementById(colsId);
+      const alertEl = document.getElementById(alertId);
+      if (detailEl) detailEl.textContent = detailText;
+      renderImpactAlertCols(colsEl, sensors);
+      if (alertEl) {
+        alertEl.hidden = false;
+        alertEl.classList.remove('impact-alert--show');
+        void alertEl.offsetWidth;
+        alertEl.classList.add('impact-alert--show');
+      }
+    }
+
+    for (const idx of sensors) {
+      for (const lane of getImpactLanes(idx)) {
+        lane.classList.add('impact-lane--hit');
+      }
+    }
+
+    if (impactAlertTimer) clearTimeout(impactAlertTimer);
+    impactAlertTimer = setTimeout(() => {
+      for (const id of ['impactAlert', 'impactAlertFs']) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove('impact-alert--show');
+          el.hidden = true;
+        }
+      }
+      for (const idx of sensors) {
+        for (const lane of getImpactLanes(idx)) {
+          lane.classList.remove('impact-lane--hit');
+        }
+      }
+    }, 3200);
+  }
+
+  function openImpactFullscreen() {
+    const overlay = document.getElementById('impactFsOverlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    document.body.classList.add('impact-fs-active');
+    impactFsOpen = true;
+    updateImpactLive(sensorValues, null);
+  }
+
+  function closeImpactFullscreen() {
+    const overlay = document.getElementById('impactFsOverlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    document.body.classList.remove('impact-fs-active');
+    impactFsOpen = false;
+  }
+
+  function initImpactFullscreenControls() {
+    document.getElementById('btn-impact-fs')?.addEventListener('click', openImpactFullscreen);
+    document.getElementById('btn-impact-fs-close')?.addEventListener('click', closeImpactFullscreen);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && impactFsOpen) {
+        e.preventDefault();
+        closeImpactFullscreen();
+      }
+    });
+  }
+
+  function handleImpactEvent(msg) {
+    if (msg.totalImpacts != null) {
+      totalImpacts = msg.totalImpacts;
+    } else {
+      totalImpacts += 1;
+    }
+    const statEl = document.getElementById('statImpacts');
+    if (statEl) statEl.textContent = totalImpacts.toLocaleString('fr-FR');
+    flashImpact(msg.sensors || []);
+    showImpactAlert(msg);
+    const sensorList = (msg.sensors || []).map((s) => s + 1).join(', ');
+    addLogEntry(
+      -1,
+      false,
+      `💥 Impact — ${msg.sensorCount} capteur(s) [${sensorList}], magnitude ${msg.magnitude}`
+    );
   }
 
   function hasOverride(idx) {
@@ -494,11 +1004,12 @@
     const entry = document.createElement('div');
 
     if (sensorIdx === -1) {
-      entry.className = 'log-entry exit';
+      const isImpact = customMsg && customMsg.includes('Impact');
+      entry.className = isImpact ? 'log-entry log-entry--impact' : 'log-entry exit';
       entry.innerHTML = `
         <span class="log-time">${time}</span>
-        <span class="log-msg log-msg--system">${customMsg || 'Système'}</span>
-        <span class="log-badge exit">Système</span>
+        <span class="log-msg ${isImpact ? 'log-msg--impact' : 'log-msg--system'}">${customMsg || 'Système'}</span>
+        <span class="log-badge ${isImpact ? 'impact' : 'exit'}">${isImpact ? 'Impact' : 'Système'}</span>
       `;
     } else {
       entry.className = `log-entry ${isEnter ? 'enter' : 'exit'}`;
@@ -518,6 +1029,8 @@
     const active = sensorStates.filter(Boolean).length;
     document.getElementById('statTotal').textContent = totalDetections.toLocaleString('fr-FR');
     document.getElementById('statActive').textContent = String(active);
+    const statImpacts = document.getElementById('statImpacts');
+    if (statImpacts) statImpacts.textContent = totalImpacts.toLocaleString('fr-FR');
   }
 
   const serialConnection = document.getElementById('serial-connection');
@@ -757,6 +1270,11 @@
   }
 
   function handleSensorUpdate(data) {
+    syncImpactDetectionFromServer(data.impactDetection);
+    if (data.totalImpacts != null) {
+      totalImpacts = data.totalImpacts;
+    }
+
     sensorValues = data.values;
     sensorStates = data.states;
     sensorCounts = data.counts;
@@ -776,6 +1294,8 @@
         updateSensorThreshLine(i);
       }
     }
+    updateImpactLive(data.values, data.impactDrops);
+    updateSensorStability(data.sensorStability);
     updateChart();
     updateStats();
 
@@ -798,6 +1318,12 @@
         break;
       case 'SENSOR_EVENT':
         addLogEntry(msg.sensor, msg.state);
+        break;
+      case 'SENSOR_IMPACT':
+        handleImpactEvent(msg);
+        break;
+      case 'SENSOR_IMPACT_CONFIG_CHANGED':
+        syncImpactDetectionFromServer(msg.impactDetection);
         break;
       case 'SENSOR_CALIBRATION_START':
         showCalibOverlay();
@@ -856,6 +1382,8 @@
 
   initUI();
   initChart();
+  initImpactFullscreenControls();
+  initImpactSensitivityControls();
 
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   WSClient.connect(`${wsProto}://${location.host}`, {
@@ -869,6 +1397,9 @@
         const pct = Math.round(data.ratio * 100);
         lastSavedPercent = pct;
         updateThresholdControls(pct);
+      }
+      if (data.impactDetection) {
+        syncImpactDetectionFromServer(data.impactDetection);
       }
       if (data.sensorOverrides) sensorOverrides = { ...data.sensorOverrides };
       if (data.effectiveRatios) effectiveRatios = data.effectiveRatios.slice();
@@ -886,6 +1417,10 @@
           ratio: data.ratio,
           sensorOverrides: data.sensorOverrides,
           effectiveRatios: data.effectiveRatios,
+          impactDetection: data.impactDetection,
+          totalImpacts: data.totalImpacts,
+          impactDrops: data.impactDrops,
+          sensorStability: data.sensorStability,
         });
       } else {
         syncSensorOverridesFromServer(data);

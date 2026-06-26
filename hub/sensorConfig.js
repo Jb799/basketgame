@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PLATFORM_COLUMNS } = require('../shared/constants');
+const { normalizeImpactConfig } = require('../shared/modules/impact-detector');
 
 const DEFAULT_THRESHOLD_RATIO = 0.55;
 const MIN_THRESHOLD_RATIO = 0.1;
@@ -37,19 +38,30 @@ function loadSensorConfig() {
     const data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
     const thresholdRatio = clampRatio(data.thresholdRatio) ?? DEFAULT_THRESHOLD_RATIO;
     const sensorOverrides = normalizeSensorOverrides(data.sensorOverrides);
-    return { thresholdRatio, sensorOverrides };
+    const impactDetection = normalizeImpactConfig(data.impactDetection);
+    return { thresholdRatio, sensorOverrides, impactDetection };
   } catch {
-    return { thresholdRatio: DEFAULT_THRESHOLD_RATIO, sensorOverrides: {} };
+    return {
+      thresholdRatio: DEFAULT_THRESHOLD_RATIO,
+      sensorOverrides: {},
+      impactDetection: normalizeImpactConfig(),
+    };
   }
 }
 
 function saveSensorConfig(config) {
   const thresholdRatio = clampRatio(config.thresholdRatio) ?? DEFAULT_THRESHOLD_RATIO;
   const sensorOverrides = normalizeSensorOverrides(config.sensorOverrides);
+  const impactFull = normalizeImpactConfig(config.impactDetection);
+  const impactDetection = {
+    enabled: impactFull.enabled,
+    sensitivity: impactFull.sensitivity,
+    peakSamples: impactFull.peakSamples,
+  };
   fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
   fs.writeFileSync(
     CONFIG_PATH,
-    JSON.stringify({ thresholdRatio, sensorOverrides }, null, 2) + '\n',
+    JSON.stringify({ thresholdRatio, sensorOverrides, impactDetection }, null, 2) + '\n',
     'utf8'
   );
 }
@@ -81,6 +93,7 @@ module.exports = {
   NUM_SENSORS,
   clampRatio,
   normalizeSensorOverrides,
+  normalizeImpactConfig,
   loadSensorConfig,
   saveSensorConfig,
   getEffectiveRatio,

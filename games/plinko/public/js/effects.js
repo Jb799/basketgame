@@ -77,7 +77,21 @@ window.Fx = (function () {
       knifeFlash(cx, cy);
     } else if (slot.type === 'thief') {
       thiefFlash(cx, cy);
+    } else if (slot.type === 'golden') {
+      goldenFlash(cx, cy);
     }
+  }
+
+  function goldenFlash(x, y) {
+    const el = document.createElement('div');
+    el.className = 'fx-golden';
+    el.textContent = '🏆';
+    el.style.left = `${x - 24}px`;
+    el.style.top = `${y - 24}px`;
+    fxLayer.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+    coinBurst(x, y, 6, 0);
+    if (Sounds.achievement) Sounds.achievement();
   }
 
   function knifeFlash(x, y) {
@@ -128,7 +142,7 @@ window.Fx = (function () {
 
     const el = document.createElement('div');
     el.className = `fx-score-fly ${isGain ? 'fx-score-fly--gain' : 'fx-score-fly--loss'}`;
-    if (window.PlayerFaces && PlayerFaces.hasRoster()) {
+    if (window.PlayerFaces) {
       const face = PlayerFaces.createFace({ slot: player, variant: isGain ? 'win' : 'lose', size: 'lg' });
       face.classList.add('fx-score-fly__face');
       el.appendChild(face);
@@ -211,5 +225,5 @@ window.Fx = (function () {
     });
   }
 
-  return { coinBurst, bombExplosion, onLand, flash, flyScoreToPlayer, flyCoinsBetween, knifeFlash, thiefFlash };
+  return { coinBurst, bombExplosion, onLand, flash, flyScoreToPlayer, flyCoinsBetween, knifeFlash, thiefFlash, goldenFlash };
 })();

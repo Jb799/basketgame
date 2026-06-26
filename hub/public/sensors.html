@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="/shared/column-layout.css" />
   <link rel="stylesheet" href="css/sensors.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -93,6 +94,82 @@
         <h2 class="section-title">Capteurs en direct</h2>
         <div class="sensor-grid" id="sensorGrid"></div>
 
+        <section class="impact-panel" id="impactPanel" aria-label="Impacts structure">
+          <div class="impact-panel__head">
+            <div>
+              <h3 class="impact-panel__title">Impacts structure</h3>
+              <p class="impact-panel__hint">Alignement des 7 colonnes — vibrations détectées quand plusieurs capteurs chutent simultanément</p>
+              <p class="impact-panel__stability-note" id="stabilityWindowNote">Stabilité — frappez la structure pour remplir les jauges (10 min)</p>
+            </div>
+            <div class="impact-panel__actions">
+              <div class="impact-panel__live" id="impactLive">
+                <span class="impact-panel__live-val" id="impactLiveCount">0</span>
+                <span class="impact-panel__live-lbl">capteurs en chute</span>
+              </div>
+              <button type="button" class="btn btn--ghost btn--sm" id="btn-impact-fs" title="Plein écran — alignement paniers">
+                Plein écran
+              </button>
+            </div>
+          </div>
+
+          <div class="impact-sensitivity" id="impactSensitivityPanel" aria-label="Sensibilité impacts structure">
+            <div class="impact-sensitivity__head">
+              <div>
+                <span class="impact-sensitivity__label">Sensibilité impact</span>
+                <p class="impact-sensitivity__hint" id="impactSensitivityHint">—</p>
+              </div>
+              <div class="impact-sensitivity__value" id="impactSensitivityDisplay">65<span>%</span></div>
+            </div>
+            <div class="threshold-panel__row impact-sensitivity__row">
+              <div class="threshold-slider">
+                <input
+                  type="range"
+                  id="impactSensitivitySlider"
+                  class="threshold-slider__input"
+                  min="10"
+                  max="90"
+                  step="1"
+                  value="65"
+                  aria-label="Curseur sensibilité impact"
+                />
+              </div>
+              <label class="threshold-panel__input-wrap" for="impactSensitivityInput">
+                <input
+                  type="number"
+                  id="impactSensitivityInput"
+                  class="threshold-panel__input"
+                  min="10"
+                  max="90"
+                  step="1"
+                  value="65"
+                  inputmode="numeric"
+                  aria-label="Sensibilité impact en pourcentage"
+                />
+                <span class="threshold-panel__unit">%</span>
+              </label>
+            </div>
+            <div class="threshold-panel__scale">
+              <span>10 %</span>
+              <span class="threshold-panel__scale-mid">Sensible ← → Tolérant</span>
+              <span>90 %</span>
+            </div>
+            <p class="impact-sensitivity__status" id="impactSensitivityStatus" hidden></p>
+          </div>
+
+          <div class="impact-alert" id="impactAlert" hidden aria-live="assertive">
+            <div class="impact-alert__icon" aria-hidden="true">💥</div>
+            <div class="impact-alert__body">
+              <div class="impact-alert__title">Impact détecté</div>
+              <div class="impact-alert__detail" id="impactAlertDetail">—</div>
+              <div class="impact-alert__cols" id="impactAlertCols"></div>
+            </div>
+          </div>
+
+          <div class="impact-platform platform-grid" id="impactPlatform">
+            <div class="impact-platform__ripple" id="impactRipple" hidden></div>
+          </div>
+        </section>
+
         <div class="chart-section">
           <div class="chart-header">
             <div>
@@ -119,6 +196,10 @@
               <div class="stat-box__val" id="statActive">0</div>
               <div class="stat-box__lbl">Actifs</div>
             </div>
+            <div class="stat-box">
+              <div class="stat-box__val" id="statImpacts">0</div>
+              <div class="stat-box__lbl">Impacts</div>
+            </div>
             <div class="stat-box stat-box--wide">
               <div class="stat-box__val stat-box__val--sm" id="statPort">—</div>
               <div class="stat-box__lbl">Port série</div>
@@ -140,6 +221,41 @@
       </aside>
     </div>
   </main>
+
+  <div class="impact-fs-overlay" id="impactFsOverlay" hidden aria-label="Alignement plateau — plein écran">
+    <header class="impact-fs-overlay__topbar">
+      <div>
+        <h2 class="impact-fs-overlay__title brand">Alignement <span class="brand__accent">plateau</span></h2>
+        <p class="impact-fs-overlay__sub">7 colonnes — même disposition que les paniers physiques (gauche → droite)</p>
+      </div>
+      <div class="impact-fs-overlay__topbar-actions">
+        <div class="impact-panel__live impact-panel__live--fs" id="impactLiveFs">
+          <span class="impact-panel__live-val" id="impactLiveCountFs">0</span>
+          <span class="impact-panel__live-lbl">capteurs en chute</span>
+        </div>
+        <button type="button" class="btn btn--ghost" id="btn-impact-fs-close">Fermer</button>
+      </div>
+    </header>
+
+    <div class="impact-alert impact-alert--fs" id="impactAlertFs" hidden aria-live="assertive">
+      <div class="impact-alert__icon" aria-hidden="true">💥</div>
+      <div class="impact-alert__body">
+        <div class="impact-alert__title">Impact détecté</div>
+        <div class="impact-alert__detail" id="impactAlertDetailFs">—</div>
+        <div class="impact-alert__cols" id="impactAlertColsFs"></div>
+      </div>
+    </div>
+
+    <div class="impact-fs-stage">
+      <div class="impact-fs-platform platform-grid" id="impactPlatformFs">
+        <div class="impact-platform__ripple impact-platform__ripple--fs" id="impactRippleFs" hidden></div>
+      </div>
+      <div class="impact-fs-ruler platform-column-numbers" aria-hidden="true">
+        <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+      </div>
+      <p class="impact-fs-hint">Frappez la structure pour tester la détection d'impact · <kbd>Échap</kbd> pour quitter</p>
+    </div>
+  </div>
 
   <div class="calib-overlay" id="calibOverlay">
     <div class="calib-box">

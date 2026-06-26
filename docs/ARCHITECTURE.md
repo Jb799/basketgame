@@ -54,7 +54,7 @@ flowchart TB
 | Fichier | Responsabilité |
 |---------|----------------|
 | [`hub/index.js`](../hub/index.js) | Express, WebSocket de contrôle, proxy `/play`, API, pages `/`, `/tv`, `/sensors` |
-| [`hub/esp32SensorService.js`](../hub/esp32SensorService.js) | Port série ESP32, calibration IR, détection balle → triggers jeux |
+| [`hub/esp32SensorService.js`](../hub/esp32SensorService.js) | Port série ESP32, calibration IR, détection balle → triggers jeux, détection impact structure |
 | [`hub/gameRegistry.js`](../hub/gameRegistry.js) | Découverte des jeux par scan de `games/*/game.config.json` |
 | [`hub/gameManager.js`](../hub/gameManager.js) | Cycle de vie du jeu actif (un seul à la fois) |
 
@@ -108,8 +108,9 @@ La télé charge le jeu dans une **iframe** pointant sur `/play/`, ce qui permet
 | `series` | `getSeriesWinner` | Gagnant d'une série (premier à N victoires) |
 | `plinko` | `generateBoard`, `simulateDropSeeded` | Plateau aléatoire + simulation de chute discrète |
 | `player-profiles` | `PlayerProfiles` | Profils joueurs (pseudo + 3 photos + tête détourée `cutout.png`) + persistance fichier (`data/players/`) |
+| `player-stats` | `recordResult`, `normalizeStats` | Agrégation pure des statistiques par jeu (`win` / `loss` / `tie`) — persistance via `player-profiles` |
 
-> I/O fichier : seuls `scoring` et `player-profiles` lisent/écrivent sur disque ; leur persistance reste isolée du reste de la logique.
+> I/O fichier : seuls `scoring`, `player-profiles` (dont `statistics.json`) lisent/écrivent sur disque ; leur persistance reste isolée du reste de la logique.
 
 > Règle : un jeu **compose** ces modules. Toute mécanique réutilisable doit devenir un module plutôt que d'être dupliquée. Voir [`AGENTS.md`](../AGENTS.md#-règle-obligatoire--priorité-aux-modules-partagés).
 
@@ -137,7 +138,8 @@ La télé charge le jeu dans une **iframe** pointant sur `/play/`, ce qui permet
 
 ### Profils joueurs côté hub
 
-- [`hub/playerProfiles.js`](../hub/playerProfiles.js) — branche le module `player-profiles` sur `data/players/`, expose le routeur `/api/players` (CRUD + photos + tête détourée `cutout`) et `buildEnrichedRoster()` qui résout les ids choisis en roster enrichi (slot, pseudo, URLs photos, `cutoutUrl`) injecté au lancement.
+- [`hub/playerProfiles.js`](../hub/playerProfiles.js) — branche le module `player-profiles` sur `data/players/`, expose le routeur `/api/players` (CRUD + photos + tête détourée `cutout` + `record-game`) et `buildEnrichedRoster()` qui résout les ids choisis en roster enrichi (slot, pseudo, URLs photos ou `null`, `cutoutUrl`) injecté au lancement.
+- [`shared/server/reportPlayerStats.js`](../shared/server/reportPlayerStats.js) — helper appelé par les serveurs de jeu en fin de partie pour mettre à jour `statistics.json` via le hub.
 
 ---
 
@@ -148,7 +150,7 @@ La télé charge le jeu dans une **iframe** pointant sur `/play/`, ce qui permet
 ```
 1. Contrôleur : POST /api/games/<id>/start [body JSON optionnel]
    Ex. Plinko : { "playerCount": 4, "roster": ["<id1>", ...] }
-2. Hub : validateStartParams() selon game.config.json → controller.startOptions / requiresPlayerRoster
+2. Hub : validateStartParams() selon game.config.json → controller.startOptions / requiresPlayerRoster / optionalPlayerRoster
    puis buildEnrichedRoster() résout les profils (pseudo + URLs photos)
 3. gameManager.startGame(id, params) → spawn avec env GAME_START_PARAMS (roster enrichi inclus)
 4. Attente du health check → status = running
@@ -167,6 +169,22 @@ La télé charge le jeu dans une **iframe** pointant sur `/play/`, ce qui permet
 5. Serveur du jeu : broadcast({ type:"TOKEN_PLACED" | "GAME_OVER" | "DRAW", ... }) en WS
 6. L'iframe du jeu (télé) reçoit le message et anime la grille
 ```
+
+### 2b. Impact sur la structure (vibration)
+
+Canal **séparé** du trigger colonne — détecté côté hub quand plusieurs capteurs chutent simultanément (module `shared/modules/impact-detector`).
+
+```
+1. ESP32 : RAW:v1,…,v7 (~10 ms)
+2. Hub : impactDetector.tick() — corrélation multi-capteurs sur fenêtre glissante
+3. Hub : WS SENSOR_IMPACT → dashboard /sensors
+4. Si jeu actif : POST http://127.0.0.1:3101/api/impact → createGameServer diffuse STRUCTURE_IMPACT en WS → StructureImpact.play() côté télé (iframe /play)
+5. Si idle : WS HUB_IMPACT → StructureImpact.play() sur l'écran d'attente /tv
+
+**Mode simulation** (`--simulate` ou `SENSOR_SIMULATE=1`) : pas de port série USB. Les triggers passent par `simulateBallInColumn()` (valeurs ADC virtuelles + même pipeline de détection). Les impacts de test : `POST /api/sensors/simulate/impact`.
+```
+
+Paramètres dans `data/sensors-config.json` → section `impactDetection` (`sensitivity` 10–90 %, `peakSamples`). La sensibilité pilote `minDrop`, `minSensors`, `windowMs` et `debounceMs` (plus le % est haut, moins c'est sensible). Réglage live sur `/sensors`.
 
 ### 3. Arrêter un jeu
 

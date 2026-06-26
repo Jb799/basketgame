@@ -64,17 +64,30 @@ window.UI = (function () {
   }
 
   function showMinigameLandPause(kind, player, durationMs = 400) {
-    const label = kind === 'knife' ? '🔪 Couteau !' : '🦹 Voleur !';
-    setHud(null, null, playerLabel(player), label);
+    const labels = {
+      knife: '🔪 Couteau !',
+      thief: '🦹 Voleur !',
+      golden: '🏆 Panier d\'Or !',
+    };
+    setHud(null, null, playerLabel(player), labels[kind] || 'Mini-jeu !');
     return sleep(durationMs);
   }
 
   function showMinigameIntro(kind, player, durationMs = 650) {
     if (!minigameIntroOverlay || !minigameIntroBanner) return sleep(0);
 
-    const icon = kind === 'knife' ? '🔪' : '🦹';
-    const title = kind === 'knife' ? 'MINI-JEU COUTEAU' : 'MINI-JEU VOLEUR';
-    minigameIntroBanner.textContent = `${icon} ${title} — Visez une colonne !`;
+    const icons = { knife: '🔪', thief: '🦹', golden: '🏆' };
+    const titles = {
+      knife: 'MINI-JEU COUTEAU',
+      thief: 'MINI-JEU VOLEUR',
+      golden: 'PANIER D\'OR',
+    };
+    const icon = icons[kind] || '🎯';
+    const title = titles[kind] || 'MINI-JEU';
+    const hint = kind === 'golden'
+      ? 'Visez le panier d\'or en mouvement !'
+      : 'Visez une colonne !';
+    minigameIntroBanner.textContent = `${icon} ${title} — ${hint}`;
     minigameIntroBanner.className = `minigame-intro-overlay__banner minigame-intro-overlay__banner--${kind}`;
     minigameIntroOverlay.hidden = false;
 
@@ -92,6 +105,8 @@ window.UI = (function () {
       text = '🔪 Mini-jeu Couteau !';
     } else if (slotType === 'thief') {
       text = '🦹 Mini-jeu Voleur !';
+    } else if (slotType === 'golden') {
+      text = '🏆 Panier d\'Or !';
     } else if (appliedDelta > 0) {
       text = `+${appliedDelta} pièce${appliedDelta > 1 ? 's' : ''} !`;
       if (onFire) text += ' 🔥 ×2';

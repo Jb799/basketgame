@@ -37,6 +37,7 @@ Prérequis : **Node.js >= 18**.
 ./start.zsh              # démarre le hub, affiche les URLs (IP locale incluse)
 ./start.zsh --open       # + ouvre contrôleur et télé dans le navigateur
 ./start.zsh --dev        # mode développement (rechargement auto)
+./start.zsh --simulate   # sans ESP32 — détection simulée (dashboard + simulateur)
 ./start.zsh --help       # voir toutes les options
 ```
 
@@ -46,6 +47,7 @@ Prérequis : **Node.js >= 18**.
 .\start.ps1              # démarre le hub, affiche les URLs (IP locale incluse)
 .\start.ps1 --open       # + ouvre contrôleur et télé dans le navigateur
 .\start.ps1 --dev        # mode développement (rechargement auto)
+.\start.ps1 --simulate   # sans ESP32 — détection simulée (dashboard + simulateur)
 .\start.ps1 --help       # voir toutes les options
 ```
 
@@ -82,7 +84,6 @@ Sur le contrôleur, choisissez un jeu et appuyez sur **Lancer** : il démarre et
 |-----|---------|---------|-----|
 | Puissance 4 | `games/puissance4/` | 2 | [games/puissance4/docs/README.md](games/puissance4/docs/README.md) |
 | Plinko | `games/plinko/` | 2–5 | [games/plinko/docs/README.md](games/plinko/docs/README.md) |
-| Siège Zombie | `games/zombie-siege/` | Coop (1+) | [games/zombie-siege/docs/README.md](games/zombie-siege/docs/README.md) |
 
 ---
 
@@ -98,12 +99,16 @@ Le plateau fait la largeur de la télé et est divisé en **7 colonnes égales**
 
 **En ligne de commande** (le jeu doit être lancé depuis le contrôleur) :
 
-> Note : Puissance 4 et Plinko exigent désormais un **roster** de profils (`controller.requiresPlayerRoster`).
-> Créez d'abord des joueurs avec leurs 3 photos sur `/players`, puis passez leurs identifiants
-> dans le champ `roster` au lancement (voir [docs/API.md](docs/API.md)).
+> Note : Puissance 4 et Plinko acceptent un **roster** optionnel de profils (`controller.optionalPlayerRoster`).
+> Sans sélection, les jeux affichent des avatars par défaut (initiales J1, J2…). Les profils **sans photos**
+> sont utilisables : le pseudo s'affiche et les initiales servent d'avatar. Les stats de chaque profil
+> sont persistées dans `data/players/<id>/statistics.json` (victoires par jeu). Voir [docs/API.md](docs/API.md).
 
 ```bash
-# Lancer le Puissance 4 avec deux profils
+# Lancer le Puissance 4 sans profils (avatars par défaut)
+curl -X POST http://localhost:3000/api/games/puissance4/start
+
+# Lancer le Puissance 4 avec deux profils (optionnel)
 curl -X POST http://localhost:3000/api/games/puissance4/start \
   -H 'Content-Type: application/json' \
   -d '{"roster": ["<id-joueur-1>", "<id-joueur-2>"]}'
@@ -112,9 +117,6 @@ curl -X POST http://localhost:3000/api/games/puissance4/start \
 curl -X POST http://localhost:3000/api/games/plinko/start \
   -H 'Content-Type: application/json' \
   -d '{"playerCount": 3, "roster": ["<id1>", "<id2>", "<id3>"]}'
-
-# Lancer Siège Zombie (coop)
-curl -X POST http://localhost:3000/api/games/zombie-siege/start
 
 # Simuler une balle dans la colonne 4 (index 3)
 curl -X POST "http://localhost:3000/api/trigger?col=3"

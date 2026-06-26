@@ -421,8 +421,121 @@
 .sensor-stats {
   display: flex;
   justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+}
+
+.sensor-stability {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
+}
+
+.sensor-stability--low {
+  background: rgba(255, 71, 87, 0.06);
+  margin-left: -0.35rem;
+  margin-right: -0.35rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.sensor-stability__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.3rem;
+}
+
+.sensor-stability__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.sensor-stability__pct {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sensor-stability__track {
+  height: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sensor-stability__fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--text-muted);
+  transition: width 0.35s ease, background 0.25s;
+}
+
+.sensor-stability__sub {
+  margin: 0.25rem 0 0;
   font-size: 0.62rem;
-  color: var(--text-dim);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.sensor-stability--low .sensor-stability__sub {
+  color: var(--danger);
+}
+
+.impact-panel__stability-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.impact-lane--unstable {
+  border-color: rgba(255, 71, 87, 0.55) !important;
+  box-shadow: inset 0 0 12px rgba(255, 71, 87, 0.15);
+}
+
+.impact-lane__stability {
+  position: relative;
+  z-index: 2;
+  width: 70%;
+  margin-bottom: 0.35rem;
+  text-align: center;
+}
+
+.impact-lane__stability-track {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.15rem;
+}
+
+.impact-lane__stability-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  transition: height 0.35s ease, background 0.25s;
+}
+
+.impact-lane__stability-lbl {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--text-muted);
+}
+
+.impact-lane--fs .impact-lane__stability {
+  width: 55%;
+  margin-top: 0.15rem;
+}
+
+.impact-lane--fs .impact-lane__stability-track {
+  height: 6px;
 }
 
 .sensor-stats .count {
@@ -745,6 +858,21 @@
   color: var(--brand-orange-bright);
 }
 
+.log-entry--impact {
+  background: rgba(255, 107, 0, 0.08);
+  border-left: 3px solid var(--brand-accent);
+}
+
+.log-msg--impact {
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+.log-badge.impact {
+  background: rgba(255, 107, 0, 0.2);
+  color: var(--brand-accent);
+}
+
 .empty-log {
   text-align: center;
   color: var(--text-dim);
@@ -929,5 +1057,566 @@
 
   .sensors-recalib {
     width: 100%;
+  }
+}
+
+/* ─── Impacts structure ─────────────────────────────────────── */
+
+.impact-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.impact-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.impact-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.impact-sensitivity {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.impact-sensitivity.is-saving {
+  opacity: 0.85;
+}
+
+.impact-sensitivity__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.impact-sensitivity__label {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.impact-sensitivity__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.impact-sensitivity__value {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--brand-accent);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.impact-sensitivity__value span {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.impact-sensitivity__row {
+  margin-bottom: 0.35rem;
+}
+
+.impact-sensitivity__status {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.impact-sensitivity__status.is-ok {
+  color: var(--brand-accent);
+}
+
+.impact-panel__title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.impact-panel__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.impact-panel__live {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.impact-panel__live--hot {
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 12px rgba(255, 107, 0, 0.25);
+}
+
+.impact-panel__live-val {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--brand-accent);
+  line-height: 1;
+}
+
+.impact-panel__live-lbl {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+
+.impact-panel__live--fs .impact-panel__live-val {
+  font-size: 2rem;
+}
+
+/* Bannière impact explicite */
+.impact-alert {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, rgba(255, 107, 0, 0.2) 0%, rgba(255, 50, 0, 0.08) 100%);
+  border: 2px solid var(--brand-accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 24px rgba(255, 107, 0, 0.35);
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 0.2s, transform 0.25s ease-out;
+}
+
+.impact-alert--show {
+  opacity: 1;
+  transform: scale(1);
+  animation: impact-alert-pulse 0.6s ease-out 2;
+}
+
+@keyframes impact-alert-pulse {
+  0%, 100% { box-shadow: 0 0 24px rgba(255, 107, 0, 0.35); }
+  50% { box-shadow: 0 0 36px rgba(255, 107, 0, 0.65); }
+}
+
+.impact-alert--fs {
+  margin: 0 auto 1.25rem;
+  max-width: 52rem;
+  width: calc(100% - 2rem);
+  padding: 1.1rem 1.35rem;
+}
+
+.impact-alert__icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.impact-alert--fs .impact-alert__icon {
+  font-size: 2.75rem;
+}
+
+.impact-alert__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--brand-accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.impact-alert--fs .impact-alert__title {
+  font-size: 1.35rem;
+}
+
+.impact-alert__detail {
+  font-size: 0.82rem;
+  color: var(--text);
+  margin-top: 0.2rem;
+}
+
+.impact-alert--fs .impact-alert__detail {
+  font-size: 0.95rem;
+}
+
+.impact-alert__cols {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+  max-width: 18rem;
+}
+
+.impact-alert--fs .impact-alert__cols {
+  max-width: 24rem;
+  gap: 0.5rem;
+}
+
+.impact-alert__col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.75rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.impact-alert__col--on {
+  background: var(--brand-accent);
+  color: #0a0a0a;
+  border-color: var(--brand-accent);
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+  transform: scale(1.08);
+}
+
+.impact-platform {
+  position: relative;
+  gap: 0.35rem;
+  height: 5.5rem;
+  padding: 0.65rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.impact-platform--hit {
+  animation: impact-shake 0.35s ease-out;
+}
+
+@keyframes impact-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+.impact-platform__ripple {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 40%;
+  height: 40%;
+  border-radius: 50%;
+  border: 2px solid var(--brand-accent);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.impact-platform__ripple--play {
+  animation: impact-ripple 0.65s ease-out forwards;
+}
+
+@keyframes impact-ripple {
+  from {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.impact-lane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.impact-lane__track {
+  position: absolute;
+  inset: 0.35rem 0.25rem 1.4rem;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.impact-lane__track--sm {
+  inset: 0.25rem 0.2rem 1.1rem;
+}
+
+.impact-lane__bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: var(--lane-color, var(--brand-accent));
+  opacity: 0.45;
+  transition: height 0.08s linear, opacity 0.1s;
+}
+
+.impact-lane__bar--active {
+  opacity: 0.9;
+}
+
+.impact-lane--dropping {
+  border-color: rgba(255, 107, 0, 0.35);
+}
+
+.impact-lane--hit {
+  border-color: var(--brand-accent);
+  box-shadow: inset 0 0 20px rgba(255, 107, 0, 0.35);
+}
+
+.impact-lane__num {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding-bottom: 0.2rem;
+}
+
+.impact-lane__num--lg {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--lane-color, var(--brand-accent));
+  padding: 0;
+}
+
+.impact-lane__head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.5rem;
+  gap: 0.15rem;
+}
+
+.impact-lane__gpio {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.impact-lane__basket {
+  position: relative;
+  z-index: 2;
+  font-size: 1.5rem;
+  margin: auto 0 0.35rem;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.impact-lane__adc {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-bottom: 0.45rem;
+}
+
+.impact-lane__adc--drop {
+  color: var(--brand-accent);
+  font-weight: 600;
+}
+
+.impact-lane--fs {
+  justify-content: stretch;
+  min-height: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.impact-lane--fs .impact-lane__track {
+  inset: 3.2rem 0.5rem 3.5rem;
+}
+
+.impact-lane.impact-flash,
+.sensor-card.impact-flash {
+  animation: impact-flash-pulse 0.55s ease-out;
+}
+
+@keyframes impact-flash-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 0, 0.7); }
+  50% { box-shadow: 0 0 16px 4px rgba(255, 107, 0, 0.5); }
+  100% { box-shadow: none; }
+}
+
+.sensor-card.impact-flash {
+  border-color: var(--brand-accent);
+}
+
+/* Plein écran — alignement plateau */
+body.impact-fs-active {
+  overflow: hidden;
+}
+
+.impact-fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: #050505;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255, 107, 0, 0.12) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0a0a 0%, #050505 100%);
+}
+
+.impact-fs-overlay[hidden] {
+  display: none !important;
+}
+
+.impact-fs-overlay__topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.impact-fs-overlay__title {
+  font-size: 1.35rem;
+  margin: 0 0 0.25rem;
+}
+
+.impact-fs-overlay__sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.impact-fs-overlay__topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.impact-fs-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem;
+  min-height: 0;
+}
+
+.impact-fs-platform {
+  position: relative;
+  width: 100%;
+  max-width: 96vw;
+  height: min(58vh, 32rem);
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.impact-fs-platform.impact-platform--hit {
+  border-color: var(--brand-accent);
+}
+
+.impact-platform__ripple--fs {
+  width: 30%;
+  height: 30%;
+}
+
+.impact-fs-ruler {
+  width: 100%;
+  max-width: 96vw;
+  margin-top: 0.65rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.impact-fs-hint {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.impact-fs-hint kbd {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .impact-panel__head {
+    flex-direction: column;
+  }
+
+  .impact-panel__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .impact-platform {
+    height: 4.5rem;
+  }
+
+  .impact-fs-overlay__topbar {
+    flex-direction: column;
+    padding: 0.85rem 1rem;
+  }
+
+  .impact-fs-platform {
+    height: min(50vh, 22rem);
+  }
+
+  .impact-lane__num--lg {
+    font-size: 1.25rem;
   }
 }

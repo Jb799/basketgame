@@ -45,13 +45,11 @@
       "debounceMs": 60
     },
     "swoosh": {
-      "file": "mixkit-game-ball-tap-2073.wav",
-      "gain": 0.75,
+      "file": "swoosh.mp3",
+      "gain": 0.88,
       "category": "motion",
       "maxPolyphony": 3,
-      "debounceMs": 50,
-      "playbackRate": 1.35,
-      "_note": "Remplacer par swoosh.mp3 quand disponible"
+      "debounceMs": 50
     },
     "click": {
       "file": "computer-mouse-click.mp3",

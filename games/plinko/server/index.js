@@ -4,6 +4,7 @@
 
 const path = require('path');
 const { createGameServer } = require('../../../shared/server/createGameServer');
+const { reportFromRoster } = require('../../../shared/server/reportPlayerStats');
 const { Game } = require('./game');
 
 const PORT = process.env.GAME_PORT || process.env.PORT || 3101;
@@ -67,6 +68,33 @@ function scheduleBoardUnlock() {
   }, BOARD_TRANSITION_MS);
 }
 
+function recordPlinkoGameStats(msg) {
+  if (!game.roster?.length || !msg?.ranking?.length) return;
+
+  const resultsBySlot = {};
+  if (msg.isTie && msg.tiedPlayers?.length) {
+    const tied = new Set(msg.tiedPlayers.map(Number));
+    msg.ranking.forEach((entry, index) => {
+      const slot = Number(entry.player);
+      resultsBySlot[slot] = {
+        result: tied.has(slot) ? 'tie' : 'loss',
+        meta: { rank: index + 1, score: entry.score },
+      };
+    });
+  } else {
+    const winners = new Set((msg.winners || []).map(Number));
+    msg.ranking.forEach((entry, index) => {
+      const slot = Number(entry.player);
+      resultsBySlot[slot] = {
+        result: winners.has(slot) ? 'win' : 'loss',
+        meta: { rank: index + 1, score: entry.score },
+      };
+    });
+  }
+
+  reportFromRoster('plinko', game.roster, resultsBySlot);
+}
+
 function scheduleAdvance(broadcast, delayMs = RESOLVE_MS) {
   clearResolveTimer();
   resolveTimer = setTimeout(() => {
@@ -74,6 +102,10 @@ function scheduleAdvance(broadcast, delayMs = RESOLVE_MS) {
     if (!msg) return;
 
     broadcast(msg);
+
+    if (msg.type === 'GAME_OVER') {
+      recordPlinkoGameStats(msg);
+    }
 
     if (msg.type === 'ROUND_END') {
       scheduleRoundContinue(broadcast);
@@ -102,7 +134,7 @@ function scheduleRoundContinue(broadcast) {
 }
 
 function isMinigamePhase(phase) {
-  return phase === 'minigame_knife' || phase === 'minigame_thief';
+  return phase === 'minigame_knife' || phase === 'minigame_thief' || phase === 'minigame_golden';
 }
 
 const { listen } = createGameServer({
@@ -143,6 +175,9 @@ const { listen } = createGameServer({
           resolvedAmount: result.resolvedAmount,
           appliedToVictim: result.appliedToVictim,
           appliedToAttacker: result.appliedToAttacker,
+          hit: result.hit,
+          goldenCol: result.goldenCol,
+          coinReward: result.coinReward,
           scores: result.scores,
           round: result.round,
           phase: result.phase,
